@@ -130,13 +130,13 @@ Restaurant
 \end{figure}
 
 \subsection{分词和命名实体识别工具}
-\subsubsection{中文-ansj工具}
+\subsubsection{中文}
 本文分别从携程数据集，手机数据集和NLPCC中文任务中各随机抽取5条语句，使用相同的用户自定义词典，对比了三种分词工具：thulac,ansj,jieba的精准分词性能，结果如\nameref{appendix:parsercompare}所示。由于ansj工具的实体识别能力最强，故选择ansj工具。
 ansj是由孙健实现的，具有分词，标注词性，实体识别，关键词抽取及新词发现功能的java中文分词工具。该工具使用隐马尔科夫模型进行语义消歧，使用Hash和高度优化Trie树进行词典匹配，并使用条件随机场模型(CRF)进行新词发现。\cite{ansjwiki} 本文主要使用到其分词，标注词性，实体识别及新词发现功能。\\
 对于新词发现功能，本文主要学习输入语料中的新词，然后对这些新词进行手工过滤，加入情感词典以及ansj用户自定义词典。其中用户自定义词典人工过滤8430条，过滤得到3137条词条，157条情感词典词条。\\
-\subsubsection{英文-Stanford CoreNLP工具}
+\subsubsection{英文}
 相比较没有分隔符的中文，英文短句中的单词之间由空格作为分隔符，更易于分隔，因而英文的分词难度远远小于中文分词。但由于英文文本中存在标点符号和不规则语用现象，本文选择使用Stanford CoreNLP工具进行分词。同时，这一步也是为了知识模型生成语法树做准备。\\
-Stanford CoreNLP工具是由斯坦福大学自然语言处理实验室研发的\cite{corenlp}，可以处理分句(ssplit)，分词(tokenize)，词性标注(POS)，词根化(lemma)，命名实体分析(NER)，语法树分析(parse)，短句情感分析(sentiment)和词语分析(natlog)等多种任务的工具集。该工具集可以处理多种语言，其中对英文支持最为全面准确。本文中主要用到其中的分词，分句，词性标注，词根化，命名实体分析，语法树分析等功能。\\
+Stanford CoreNLP工具是由斯坦福大学自然语言处理实验室研发的\cite{corenlp}，可以处理分句(ssplit)，分词(tokenize)，词性标注(POS)，词干化(lemma)，命名实体分析(NER)，语法树分析(parse)，短句情感分析(sentiment)和词语分析(natlog)等多种任务的工具集。该工具集可以处理多种语言，其中对英文支持最为全面准确。本文中主要用到其中的分词，分句，词性标注，词干化，命名实体分析，语法树分析等功能。\\
 该工具集基于Java，由管道(Pipeline)将各子工具连接，从而方便地复用了各子工具。\\
 以下代码为本文系统JAVA部分调用Stanford CoreNLP工具的代码：\\
 \lstset{language=java}
@@ -169,15 +169,15 @@ new StanfordCoreNLP(
 \hline
 & 层级 & 中文 & 英文\\
 \hline
-知识模型 & 语句级 & 词汇(D) & 词根化词汇(D)\\
+知识模型 & 语句级 & 词汇(D) & 词干化词汇(D)\\
 \hline
-CNN模型 & 语句级 & 词汇编号(Emb) & 词汇编号(Emb)，词根编号(Emb)\\
+CNN模型 & 语句级 & 词汇编号(Emb) & 词汇编号(Emb)，词干编号(Emb)\\
 \hline
-RNN模型 & 语句级 & 词汇编号(Emb) & 词汇编号(Emb)，词根编号(Emb)\\
+RNN模型 & 语句级 & 词汇编号(Emb) & 词汇编号(Emb)，词干编号(Emb)\\
 \hline
-CNN模型 & 实体级 & 词汇编号(Emb)，词性编号(Onehot) & 词汇编号(Emb)，词根编号(Emb)，NER特征编号(Onehot)\\
+CNN模型 & 实体级 & 词汇编号(Emb)，词性编号(Onehot) & 词汇编号(Emb)，词干编号(Emb)，NER特征编号(Onehot)\\
 \hline
-RNN模型 & 实体级 & 词汇编号(Emb)，词性编号(Onehot) & 词汇编号(Emb)，词根编号(Emb)，NER特征编号(Onehot)\\
+RNN模型 & 实体级 & 词汇编号(Emb)，词性编号(Onehot) & 词汇编号(Emb)，词干编号(Emb)，NER特征编号(Onehot)\\
 \hline
 \end{tabu}
 \end{center}
@@ -185,6 +185,6 @@ RNN模型 & 实体级 & 词汇编号(Emb)，词性编号(Onehot) & 词汇编号(
 \subsection{稀有词删除}
 该步骤统计某特征的词频，对于词频小于规定次数的特征，将其置换为一个特殊词"RAREWORD"。对于词性为nt（机构团体）, ns（地名）, nr（人名）, nz（其它专有名词）的单词所对应的特征，规定次数通常大于全局规定次数，以删除专有名词，尽量减少这类无用词的影响。
 
-\subsection{词根化}
-英文中动词往往具有多种时态，如过去式，现在进行时，一般现在时等，如got,gotten,get,getting,gets。同时，形容词和副词也常常具有同样的词根，如happy, happily。这些单词虽然形态不同，却具有语义上的联系，因此，有必要对单词进行词性还原和词干提取，以发现其内部隐含的语义联系。\par
-本文使用Stanford CoreNLP对单词进行词性还原，之后再使用nltk Snowball Stemmer进行词根化，以此作为英文模型的输入特征。词根化工具准确率分析见附录。
+\subsection{词干化}
+英文中动词往往具有多种时态，如过去式，现在进行时，一般现在时等，如got,gotten,get,getting,gets。同时，形容词和副词也常常具有同样的词干，如happy, happily。这些单词虽然形态不同，却具有语义上的联系，因此，有必要对单词进行词性还原和词干提取，以发现其内部隐含的语义联系。\par
+本文使用Stanford CoreNLP对单词进行词性还原，之后再使用nltk Snowball Stemmer进行词干化，以此作为英文模型的输入特征。相关测试见\nameref{appendix:lemmacompare}。
