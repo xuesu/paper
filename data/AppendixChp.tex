@@ -1,119 +1,92 @@
 \chapter*{附\qquad 录}
-\section*{附录~1\quad	无线脑电放大器帧结构说明文档}
-
-
-\section*{附录~2\quad 脑电放大器升级适用无线同步触发器所需程序修改说明}
-\songti\zihao{-4}
-
-	增加无线同步触发器以后需要对脑电放大器的初始化程序做一些修改，以使其能与无线同步触发器同步。主要是增加一段握手代码在初始化之后，以及对于脑电放大器开始采样时刻要与同步时间做一些对齐。
-
-	对于自适应参数的无线同步触发器，需要无线脑电放大器在握手同步以后，发送数据以前发送七个字节长的参数数据帧，该包的结构可以参考第\ref{sec:adaptativePac}节的图~\ref{AdaptParaPackage}发送。
-
-	脑电放大器发送的数据包的帧号按照同步以后第一个包为FrameID=0开始计算，比如数据包每100ms给一个，而两边完成同步后的初始时刻是A，那么脑电放大器给出的第一个FrameID为0的数据包应该包含有从A到(A+100)ms的数据。由于在自适应参数情况下，脑电放大器还需要在与无线同步触发器同步以后发送七字节的参数包。因此建议发送的第一个脑电数据包可以是采样从A+100到A+200时间段内的数据以FrameID =1发送，在此之前的A到A+100的时间段内完成同步以后的一些其他操作，比如发送自适应参数等等。
-
-	无线脑电放大器在同步之后其计时超过0xFF个数据包以前必须开始与无线同步触发器的数据发送。由于无线同步触发器在第二次接收到FrameID = 0的包时(第一次接收到FrameID = 0的包时是在同步刚完成以后)会累加器内部计数值以完成FrameID与同步计数值的对应，如果同步以后，脑电放大器没有在第一个FrameID循环结束之前给无线同步触发器发送数据，则会造成FrameID与同步计数值对应错误，也即最终的刺激事件信号标记是错误的。
-
-	以下数据发送情况不会造成上述所述的FrameID对应错误。仍按照上述假设，在同步以后，脑电放大器第一次发送的是包含从(A+255*100)到(A+256*100)ms时间段内FrameID =0xFF的采样数据给无线同步触发器，此后一个数据包FrameID = 0，发送的是从(A+256*100)到(A+257*100)ms内的数据。该情况为最晚一次发送时间，否则对应错误。
-
-	建议实际采样时刻不要出现在数据包所在时间段的端点上，以减少目前程序的刺激事件对准误差。比如40ms采样4个点，采样率为100Hz(10ms采样一次)，那么建议的实际采样点是5ms,15ms,25ms,35ms四个位置。其他情况类似。
-
-\section*{附录~3\quad 放大器端同步测试程序源代码}
-STM32固件库函数在无线脑电放大器端实现同步与仿真数据发送源代码(适用于一导脑电放大器~\cite{Xu2009}，可以配合 自适应无线同步触发器程序使用。与无线同步触发器硬件连接参考图~\ref{EEGAmpWirelessTrigger}。
-
-\textbf{源程序1:Main.c}
-		
-\textbf{源程序二:hw\_{}config.h}
-
-
-
-\textbf{源程序三:中断程序stm32f10x\_{}it.c}
-
-
-
-\section*{附录~4 \quad 无线同步触发器(WirelessTrigger)自适应参数程序固件源代码}
-\label{appendix}
-
-\textbf{源代码一:main.c}
-
-
-
-\textbf{源代码二:hw\_{}config.h}
-
-
-
-\textbf{源代码三:中断程序:stm32f10x\_{}it.c}
-
-
-\newpage
-\section*{附录~5\quad STM32F103RET6使用管脚表}
-\begin{table}[!htd]
-\begin{center}
-\caption{The Pins used in STM32F103RET6(I) \label{PinUsedWirelessTrigger1}}
-
-\noindent\begin{tabular}{|c|c|c|}
+\section*{附录~1\quad	分词工具准确率测试 \label{parser_compare}}
+\begin{center}  
+\begin{longtabu} to \textwidth{X|X[6]} 
 \hline
-\textbf{Pin Name} & \textbf{Function in MCU}  & {\bfseries NOTE}  \\ \hline
-\multicolumn{3}{|c|}{\textcolor{blue}{Power Source}}  \\ \hline
-VDDA & Power Input of ADC & 3.3V from LM1117 \\ \hline
-VDD\_{}1,2,3,4 & Power Input of MCU & 3.3V \\ \hline
-\multicolumn{3}{|c|}{\textcolor{blue}{Digital Ground}}  \\ \hline
-VSS\_{}1,2,3,4 & \rule{0pt}{1ex} &  \rule{0pt}{1ex} \\ \hline
-VSSA &  \rule{0pt}{1ex} &  \rule{0pt}{1ex} \\ \hline
-\multicolumn{3}{|c|}{\textcolor{blue}{Other}}  \\ \hline
-PD0 & OSC\_{}IN	& to active piezo-oscillator\\ \hline
-BOOT0 & BOOT0 & 10K ohm to Ground \\ \hline
-PB2  & BOOT1  & 10K ohm to Ground \\ \hline
-NRST & RESET &  Reset Button \\ \hline 
-\multicolumn{3}{|c|}{\textcolor{blue}{USART}}  \\ \hline
-PA10	& 	USART1\_{}RX	&	USART2USB-TXD  \\ \hline 
-PA9	& 	USART1\_{}TX	&	USART2USB-RXD  \\ \hline 
-PB11 	&	USART3\_{}RX	&	USART2USB-TXD  \\  \hline
-PB10	& 	USART3\_{}TX	&	USART2USB-RXD  \\ \hline 
-PA3  	&	USART2\_{}RX	&	Bluetooth\_{}TXD  \\ \hline
-PA2  	&	USART2\_{}TX	&	Bluetooth\_{}RXD  \\ \hline
-PA1	&	USART2\_{}RTS	&Bluetooth\_{}CTS\\   \hline
-PA0  	&	USART2\_{}CTS	&Bluetooth\_{}RTS   \\  \hline
-\multicolumn{3}{|c|}{\textcolor{blue}{IO pin for Bluetooth}}  \\ \hline
-PA7	&	Output IO	&Bluetooth\_{}CLR	\\ 	\hline
-PA6	&	Input IO	&Bluetooth\_ LNK  \\  \hline
-PA5	&	Output IO	Bluetooth\_ SLP \\  \hline
-\multicolumn{3}{|c|}{\textcolor{blue}{USB}}  \\ \hline
-PA11	&	USBDM	& D$-$		\\  \hline 
-PA12	&	USMDP	& D$+$		\\   \hline
-\end{tabular}
-\end{center}
-\end{table}
-
-\begin{table}[!htd]
-\begin{center}
-\caption{The Pins used in STM32F103RET6(II)  \label{PinUsedWirelessTrigger2}}
-\noindent\begin{tabular}{|c|c|c|}
+工具 & 结果 \\
 \hline
-\textbf{PIn Name} & \textbf{Function on MCU}  & {\bfseries Note}  \\ \hline
-\multicolumn{3}{|c|}{\textcolor{blue}{Parallel Port}}  \\ \hline
-PC0	& 	1	&\rule{0pt}{1ex} \\ \hline
-PC1	&	2  	&\rule{0pt}{1ex} \\ \hline
-PC2	&	3	&\rule{0pt}{1ex} \\ \hline
-PC3	&	4	&\rule{0pt}{1ex} \\ \hline
-PC4	&	5	&\rule{0pt}{1ex} \\ \hline
-PC5	&	6	&\rule{0pt}{1ex} \\ \hline
-PC6	&	7	&\rule{0pt}{1ex} \\ \hline
-PC7	&	8	&\rule{0pt}{1ex} \\ \hline
-\multicolumn{3}{|c|}{\textcolor{blue}{JTAG}}  \\ \hline
-PB4	&	JTAG\_{}TRST	&\rule{0pt}{1ex} \\ \hline
-PA15	&	TDI(Test Data Input)	&\rule{0pt}{1ex} \\ \hline
-PA13	&	TMS(Test Mode Select)	&\rule{0pt}{1ex} \\ \hline
-PA14	&	TCK(TEST Clock)	&\rule{0pt}{1ex} \\ \hline
-Pb3	&	JTDO(TDO)	&\rule{0pt}{1ex} \\ \hline
-\multicolumn{3}{|c|}{\textcolor{blue}{RGB\_{}LED in 5050}}  \\ \hline
-PB8	&	red	&\rule{0pt}{1ex} \\ \hline
-PB9	&	green	&\rule{0pt}{1ex} \\ \hline
-PB5	&	blue	&\rule{0pt}{1ex} \\ \hline
-\end{tabular}
+语句 & 很好，曲屏太带感了，流畅度可以\\
+ansj\newline (Nlp模式) & 很,d,好,a,，,w,曲屏太带感,nw,了,ul,，,w,流畅,a,度,q,可以,v\\
+thulac\newline (精准模式) & 很,d,好,a,，,w,曲屏,n,太带感,n,了,u,，,w,流畅度,id,可以,v\\
+jieba\newline (精准模式) & 很,d,好,a,，,x,曲屏,nr,太,d,带感,v,了,ul,，,x,流畅,a,度,zg,可以,v\\
+\hline
+语句 & 很好啊，京东牛逼。物流也快，东西也好。\\
+ansj\newline (Nlp模式) & 很,d,好,a,啊,y,，,w,京东,ns,牛逼,nw,。,w,物流,n,也,d,快,a,，,w,东西,n,也好,y,。,w\\
+thulac\newline (精准模式) & 很,d,好,a,啊,u,，,w,京,j,东,f,牛,n,逼,v,。,w,物流,n,也,d,快,a,，,w,东西,n,也好,u,。,w\\
+jieba\newline (精准模式) & 很,d,好,a,啊,y,，,x,京东,ns,牛,n,逼,v,。,x,物流,n,也,d,快,a,，,x,东西,n,也好,y,。,x\\
+\hline
+语句 & 包装挺好。看上去也不错\\
+ansj\newline (Nlp模式) & 包装,vn,挺,d,好,a,。,w,看上去,v,也,d,不错,a\\
+thulac\newline (精准模式) & 包装,v,挺,d,好,a,。,w,看上去,v,也,d,不错,a\\
+jieba\newline (精准模式) & 包装,n,挺,d,好,a,。,x,看上去,v,也,d,不错,a\\
+\hline
+语句 & 手机反应挺快，用了十天左右，屏幕出现彩条，把膜撕掉以后，发现手机坏了，退货，损失了一个手机膜！\\
+ansj\newline (Nlp模式) & 手机,n,反应,vn,挺快,v,，,w,用,p,了,ul,十天,m,左右,m,，,w,屏幕,n,出现,v,彩条,nz,，,w,把,p,膜,n,撕掉,nz,以后,f,，,w,发现,v,手机,n,坏,a,了,ul,，,w,退货,v,，,w,损失,n,了,ul,一个,m,手机,n,膜,n,！,w\\
+thulac\newline (精准模式) & 手机,n,反应,v,挺,d,快,a,，,w,用,p,了,u,十,m,天,q,左右,m,，,w,屏幕,n,出现,v,彩条,n,，,w,把,p,膜,n,撕掉,v,以后,f,，,w,发现,v,手机,n,坏,a,了,u,，,w,退货,v,，,w,损失,v,了,u,一个,m,手机,n,膜,n,！,w\\
+jieba\newline (精准模式) & 手机,n,反应,vn,挺快,v,，,x,用,p,了,ul,十天,m,左右,f,，,x,屏幕,n,出现,v,彩条,nz,，,x,把,p,膜,n,撕掉,nz,以后,f,，,x,发现,v,手机,n,坏,a,了,ul,，,x,退货,v,，,x,损失,n,了,ul,一个,m,手机,n,膜,n,！,x\\
+\hline
+语句 & 买了之后打不开卡槽\\
+ansj\newline (Nlp模式) & 买,v,了,ul,之后,f,打不开,v,卡槽,nw\\
+thulac\newline (精准模式) & 买,v,了,u,之后,f,打,v,不,d,开,v,卡槽,n\\
+jieba\newline (精准模式) & 买,v,了,ul,之后,f,打不开,v,卡槽,nw\\
+\hline
+语句 & 还算性价比较高的，可以推荐\\
+ansj\newline (Nlp模式) & 还算,v,性价,nw,比较,d,高,a,的,uj,，,w,可以,v,推荐,v\\
+thulac\newline (精准模式) & 还,d,算,v,性价,n,比较,d,高,a,的,u,，,w,可以,v,推荐,v\\
+jieba\newline (精准模式) & 还算,v,性价,nw,比较,d,高,a,的,uj,，,x,可以,v,推荐,v\\
+\hline
+语句 & 入住北京天坛全季酒店非常满意，很温馨，来北京首选的酒店，房间很温暖很干净，酒店服务很好，非常干净，临近小区安静，睡的很舒服\\
+ansj\newline (Nlp模式) & 入住,v,北京天坛全季酒店,nt,非常,d,满意,v,，,w,很,d,温馨,a,，,w,来,v,北京,ns,首选,v,的,uj,酒店,n,，,w,房间,n,很,d,温暖,an,很,d,干净,a,，,w,酒店,n,服务,vn,很,d,好,a,，,w,非常,d,干净,a,，,w,临近,v,小区,n,安静,a,，,w,睡,v,的,uj,很,d,舒服,a\\
+thulac\newline (精准模式) & 入住,v,北京,ns,天坛,ns,全季,n,酒店,n,非常,d,满意,v,，,w,很,d,温馨,a,，,w,来,v,北京,ns,首选,v,的,u,酒店,n,，,w,房间,n,很,d,温暖,a,很,d,干净,a,，,w,酒店,n,服务,v,很,d,好,a,，,w,非常,d,干净,a,，,w,临近,v,小区,n,安静,a,，,w,睡,v,的,u,很,d,舒服,a\\
+jieba\newline (精准模式) & 入住,v,北京,ns,天坛,ns,全季,nw,酒店,n,非常,d,满意,v,，,x,很,zg,温馨,a,，,x,来,v,北京,ns,首选,v,的,uj,酒店,n,，,x,房间,n,很,zg,温暖,an,很,zg,干净,a,，,x,酒店,n,服务,vn,很,d,好,a,，,x,非常,d,干净,a,，,x,临近,v,小区,n,安静,a,，,x,睡,v,的,uj,很,a,舒服,a\\
+\hline
+语句 & 这次的入住，让我印象颇好。深冬寒冷的北京，王府细致温暖的服务让我暖心。虽然设施略显陈旧了，但是卫生情况良好，早餐厅、健身房、前台是这几天接触最多的部门，都彬彬有\\
+ansj\newline (Nlp模式) & 这次,r,的,uj,入住,v,，,w,让,v,我,r,印象,n,颇,d,好,a,。,w,深冬,t,寒冷,a,的,uj,北京,ns,，,w,王府,n,细致,a,温暖,an,的,uj,服务,vn,让,v,我,r,暖心,nw,。,w,虽然,c,设施,n,略显,d,陈旧,a,了,ul,，,w,但是,c,卫生,an,情况,n,良好,a,，,w,早餐厅,n,、,w,健身房,n,、,w,前台,n,是,v,这,r,几天,m,接触,v,最多,ad,的,uj,部门,n,，,w,都,d,彬彬有,nw\\
+thulac\newline (精准模式) & 这次,r,的,u,入住,v,，,w,让,v,我,r,印象,n,颇,d,好,a,。,w,深冬,t,寒冷,a,的,u,北京,ns,，,w,王府,n,细致,a,温暖,a,的,u,服务,v,让,v,我,r,暖,v,心,n,。,w,虽然,c,设施,n,略,d,显,v,陈旧,a,了,u,，,w,但是,c,卫生,a,情况,n,良好,a,，,w,早餐厅,n,、,w,健身房,n,、,w,前台,n,是,v,这,r,几,m,天,q,接触,v,最,d,多,a,的,u,部门,n,，,w,都,d,彬彬有,id\\
+jieba\newline (精准模式) & 这次,r,的,uj,入住,v,，,x,让,v,我,r,印象,n,颇,d,好,a,。,x,深冬,t,寒冷,a,的,uj,北京,ns,，,x,王府,n,细致,a,温暖,an,的,uj,服务,vn,让,v,我,r,暖,a,心,n,。,x,虽然,c,设施,n,略显,d,陈旧,a,了,ul,，,x,但是,c,卫生,an,情况,n,良好,a,，,x,早餐厅,n,、,x,健身房,n,、,x,前台,n,是,v,这,r,几天,m,接触,v,最多,ad,的,uj,部门,n,，,x,都,d,彬彬,nz,有,v\\
+\hline
+语句 & 房间太脏，灰尘很大。\\
+ansj\newline (Nlp模式) & 房间,n,太,d,脏,a,，,w,灰尘,n,很大,d,。,w\\
+thulac\newline (精准模式) & 房间,n,太,d,脏,a,，,w,灰尘,n,很,d,大,a,。,w\\
+jieba\newline (精准模式) & 房间,n,太脏,n,，,x,灰尘,n,很大,d,。,x\\
+\hline
+语句 & 环境好交通方便\\
+ansj\newline (Nlp模式) & 环境,n,好,a,交通,n,方便,a\\
+thulac\newline (精准模式) & 环境,n,好,a,交通,n,方便,a\\
+jieba\newline (精准模式) & 环境,n,好,a,交通,n,方便,a\\
+\hline
+语句 & 看了一遍又一遍,还是挺喜欢的\\
+ansj\newline (Nlp模式) & 看,v,了,ul,一遍,m,又,d,一遍,m,,,null,还是,c,挺,d,喜欢,v,的,uj\\
+thulac\newline (精准模式) & 看,v,了,u,一,m,遍,q,又,d,一,m,遍,q,,,w,还是,c,挺,d,喜欢,v,的,u\\
+jieba\newline (精准模式) & 看,v,了,ul,一遍,m,又,d,一遍,m,,,x,还是,c,挺,d,喜欢,v,的,uj\\
+\hline
+语句 & 快快快！盼望《大明英烈》，《白眉大侠》，《三侠剑》，《封神演义》等等\\
+ansj\newline (Nlp模式) & 快快快,nw,！,w,盼望,v,《,w,大明,nz,英烈,n,》,w,，,w,《,w,白眉,nz,大侠,n,》,w,，,w,《,w,三侠,nr,剑,n,》,w,，,w,《,w,封神演义,nz,》,w,等等,u\\
+thulac\newline (精准模式) & 快,d,快,d,快,a,！,w,盼望,v,《,w,大明英烈,n,》,w,，,w,《,w,白眉大侠,id,》,w,，,w,《,w,三侠剑,nz,》,w,，,w,《,w,封神演义,nz,》,w,等等,u\\
+jieba\newline (精准模式) & 快快快,nw,！,x,盼望,v,《,x,大明,nz,英烈,n,》,x,，,x,《,x,白眉,nz,大侠,n,》,x,，,x,《,x,三侠,nr,剑,n,》,x,，,x,《,x,封神演义,nz,》,x,等等,u\\
+\hline
+语句 & 你无权强加民意，应该叫《你不高兴！》
+哗众取宠，为了你的经济利益吧？
+赚钱要正当，不是叫嚣几句不高兴就行的，何况，你无权叫“中国”不高兴！
+鄙视你，无知且无畏、胆大妄为的作者！
+赚这种钱，有意思吗？\\
+ansj\newline (Nlp模式) & 你,r,无权,v,强加,v,民意,n,，,w,应该,v,叫,v,《,w,你,r,不,d,高兴,a,！,w,》,w,哗众取宠,i,，,w,为了,p,你的,nt,经济,n,利益,n,吧,y,？,w,赚钱,v,要,v,正当,a,，,w,不是,c,叫嚣,v,几句,m,不,d,高兴,a,就,d,行,v,的,uj,，,w,何况,c,，,w,你,r,无权,v,叫,v,“,w,中国,ns,”,w,不,d,高兴,a,！,w,鄙视,v,你,r,，,w,无知,a,且,c,无畏,v,、,w,胆大妄为,i,的,uj,作者,n,！,w,赚,v,这种,r,钱,n,，,w,有意思,l,吗,y,？,w\\
+thulac\newline (精准模式) & 你,r,无权,v,强加,v,民意,n,，,w,应该,v,叫,v,《,w,你,r,不,d,高兴,a,！,w,》,w,换行符,,哗众取宠,id,，,w,为了,p,你,r,的,u,经济,n,利益,n,吧,u,？,w,换行符,,赚钱,v,要,v,正当,v,，,w,不,d,是,v,叫嚣,v,几,m,句,q,不,d,高兴,a,就,d,行,a,的,u,，,w,何况,c,，,w,你,r,无权,v,叫,v,“,w,中国,ns,”,w,不,d,高兴,a,！,w,换行符,,鄙视,v,你,r,，,w,无知,a,且,c,无畏,v,、,w,胆大妄为,id,的,u,作者,n,！,w,换行符,,赚,v,这种,r,钱,n,，,w,有意思,id,吗,u,？,w\\
+jieba\newline (精准模式) & 你,r,无权,v,强加,v,民意,n,，,x,应该,v,叫,v,《,x,你,r,不,d,高兴,a,！,x,》,x,换行符,x,哗众取宠,i,，,x,为了,p,你的,nt,经济,n,利益,n,吧,y,？,x,换行符,x,赚钱,v,要,v,正当,a,，,x,不是,c,叫嚣,v,几句,m,不,d,高兴,a,就行,v,的,uj,，,x,何况,c,，,x,你,r,无权,v,叫,v,“,x,中国,ns,”,x,不,d,高兴,a,！,x,换行符,x,鄙视,v,你,r,，,x,无知,a,且,zg,无畏,v,、,x,胆大妄为,i,的,uj,作者,n,！,x,换行符,x,赚,v,这种,r,钱,n,，,x,有意思,l,吗,y,？,x\\
+\hline
+语句 & 买了金属盒装的,里面有张抽奖券,按提示的网站登陆后查询号码,一直显示乱码,根本就无法得知你是否中奖!全是骗人的局!\\
+ansj\newline (Nlp模式) & 买,v,了,ul,金属,n,盒装,vi,的,uj,,,null,里面,f,有,v,张抽奖,nw,券,ng,,,null,按,p,提示,v,的,uj,网站,n,登陆,v,后,f,查询,v,号码,n,,,null,一直,d,显示,v,乱码,nz,,,null,根本,a,就,d,无法,v,得知,v,你,r,是否,v,中奖,v,!,null,全,a,是,v,骗人,v,的,uj,局,n,!,null\\
+thulac\newline (精准模式) & 买,v,了,u,金属,n,盒,g,装,v,的,u,,,w,里面,f,有,v,张,q,抽奖券,n,,,w,按,p,提示,v,的,u,网站,n,登陆,v,后,f,查询,v,号码,n,,,w,一直,d,显示,v,乱码,n,,,w,根本,d,就,d,无法,v,得知,v,你,r,是否,v,中奖,v,!,w,全,d,是,v,骗人,v,的,u,局,n,!,w\\
+jieba\newline (精准模式) & 买,v,了,ul,金属,n,盒装,vi,的,uj,,,x,里面,f,有,v,张,nr,抽奖券,nz,,,x,按,p,提示,v,的,uj,网站,n,登陆,v,后,f,查询,v,号码,n,,,x,一直,d,显示,v,乱码,nz,,,x,根本,a,就,d,无法,v,得知,v,你,r,是否,v,中奖,vi,!,x,全,a,是,v,骗人,v,的,uj,局,n,!,x\\
+\hline
+语句 & 为什么不去进步步的MY STORY(私物语)呢????都等了很久了!!!!!希望卓越赶快去进货!!CD和CD+DVD的都进上!!!!地球人都知道步步的碟是中唱发行的!!!!卓越打造中国第一电子购物网不是靠吹的~!!快点进货吧!!!
+日本流行乐坛第一而且唯一的女王滨崎步睽违2年的全新完整专辑“MY STORY 私物语”。收录“Moments 刹那”、“CAROLS 颂歌”、“INSPIRE 刺激”、“GAME 游戏”等四首日本公信榜冠军单曲，以及多首在日本搭配广告播出，引起热烈回响的的新曲“About You”、“walking proud”“my name\\
+ansj\newline (Nlp模式) & 为什么,r,不,d,去,v,进步步,nw,的,uj,my,en,story,en,(,null,私,ag,物语,nz,),null,呢,y,?,null,?,null,?,null,?,null,都,d,等,u,了,ul,很久,d,了,ul,!,null,!,null,!,null,!,null,!,null,希望,v,卓越,a,赶快,d,去,v,进货,v,!,null,!,null,cd,en,和,c,cd,en,+,null,dvd,en,的,uj,都,d,进,v,上,f,!,null,!,null,!,null,!,null,地球,n,人,n,都,d,知道,v,步步,q,的,uj,碟是,nw,中,f,唱,v,发行,v,的,uj,!,null,!,null,!,null,!,null,卓越,a,打造,v,中国,ns,第一,m,电子,n,购物网,nz,不是,c,靠,v,吹,v,的,uj,~,null,!,null,!,null,快点,d,进货,v,吧,y,!,null,!,null,!,null,日本,ns,流行,v,乐坛,n,第一,m,而且,c,唯一,b,的,uj,女王,n,滨崎步睽违,nw,2年,m,的,uj,全新,b,完整,a,专辑,n,“,w,my,en,story,en,私,ag,物语,nz,”,w,。,w,收录,v,“,w,moments,en,刹那,t,”,w,、,w,“,w,carols,en,颂歌,n,”,w,、,w,“,w,inspire,en,刺激,v,”,w,、,w,“,w,game,en,游戏,n,”,w,等,u,四首,m,日本公信榜,nw,冠军,n,单曲,n,，,w,以及,c,多首,m,在,p,日本,ns,搭配,v,广告,n,播出,v,，,w,引起,v,热烈,a,回响,n,的的,nw,新曲,nz,“,w,about,en,you,en,”,w,、,w,“,w,walking,en,proud,en,”,w,“,w,my,en,name,en\\
+thulac\newline (精准模式) & 为什么,r,不,d,去,v,进步,v,步,v,的,u,MY,x,STORY,x,(,w,私物,n,语,g,),w,呢,u,?,w,?,w,?,w,?,w,都,d,等,v,了,u,很,d,久,a,了,u,!,w,!,w,!,w,!,w,!,w,希望,v,卓越,a,赶快,d,去,v,进货,v,!,w,!,w,CD,x,和,c,CD,x,+,w,DVD,x,的,u,都,d,进,v,上,f,!,w,!,w,!,w,!,w,地球人,n,都,d,知道,v,步步,v,的,u,碟,g,是,v,中唱,j,发行,v,的,u,!,w,!,w,!,w,!,w,卓越,a,打造,v,中国,ns,第一,m,电子,n,购物网,n,不,d,是,v,靠,v,吹,v,的,u,~,w,!,w,!,w,快,a,点,q,进货,v,吧,u,!,w,!,w,!,w,换行符,,日本,ns,流行,v,乐坛,n,第一,m,而且,c,唯一,a,的,u,女王,n,滨崎步,np,睽违,v,2,m,年,q,的,u,全新,a,完整,a,专辑,n,“,w,MY,x,STORY,x,私物语,n,”,w,。,w,收录,v,“,w,Moments,x,刹那,t,”,w,、,w,“,w,CAROLS,x,颂歌,n,”,w,、,w,“,w,INSPIRE,x,刺激,v,”,w,、,w,“,w,GAME,x,游戏,n,”,w,等,u,四,m,首,q,日本,ns,公信榜,n,冠军,n,单曲,n,，,w,以及,c,多,a,首,q,在,p,日本,ns,搭配,v,广告,n,播出,v,，,w,引起,v,热烈,a,回响,v,的,u,的,u,新,a,曲,g,“,w,About,x,You,n,”,w,、,w,“,w,walking,x,proud,x,”,w,“,w,my,n,name,x\\
+jieba\newline (精准模式) & 为什么,r,不,d,去,v,进步,vn,步,q,的,uj,MY,eng, ,x,STORY,eng,(,x,私,ag,物语,nz,),x,呢,y,?,x,?,x,?,x,?,x,都,d,等,u,了,ul,很久,d,了,ul,!,x,!,x,!,x,!,x,!,x,希望,v,卓越,a,赶快,d,去,v,进货,v,!,x,!,x,CD,eng,和,c,CD,eng,+,x,DVD,eng,的,uj,都,d,进上,v,!,x,!,x,!,x,!,x,地球,n,人,n,都,d,知道,v,步步,q,的,uj,碟是,nw,中,f,唱,v,发行,v,的,uj,!,x,!,x,!,x,!,x,卓越,a,打造,v,中国,ns,第一,m,电子,n,购物网,nz,不是,c,靠,v,吹,v,的,uj,~,x,!,x,!,x,快点,d,进货,v,吧,y,!,x,!,x,!,x,换行符,x,日本,ns,流行,v,乐坛,n,第一,m,而且,c,唯一,b,的,uj,女王,nnt,滨崎步,nz,睽违,nz,2,m,年,m,的,uj,全新,b,完整,a,专辑,n,“,x,MY,eng, ,x,STORY,eng, ,x,私,ag,物语,nz,”,x,。,x,收录,v,“,x,Moments,eng, ,x,刹那,t,”,x,、,x,“,x,CAROLS,eng, ,x,颂歌,n,”,x,、,x,“,x,INSPIRE,eng, ,x,刺激,v,”,x,、,x,“,x,GAME,eng, ,x,游戏,n,”,x,等,u,四首,m,日本公信榜,nw,冠军,n,单曲,n,，,x,以及,c,多首,m,在,p,日本,ns,搭配,v,广告,n,播出,v,，,x,引起,v,热烈,a,回响,n,的的,nw,新曲,nz,“,x,About,eng, ,x,You,eng,”,x,、,x,“,x,walking,eng, ,x,proud,eng,”,x,“,x,my,eng, ,x,name,eng\\
+\hline
+\end{longtabu}
 \end{center}
-\end{table}
 
-\listoffigures
-\listoftables
 
 
