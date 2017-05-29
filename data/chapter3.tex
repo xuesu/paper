@@ -1,498 +1,426 @@
-\chapter[方法-系统实现]{方法-脑电放大器无线同步触发器(Wireless Trigger)系统实现\label{chp:implementation}}
+\chapter{语句级的情感分析模型}
+\section{知识模型}
+基于Stanford Parser的知识模型主要使用语法特征和情感词典对文本进行情感分类，该方法不需要训练，处理短文本时速度较快，适合处理情感较为强烈，使用情感词较多，逻辑较为简单的语句。
+\subsection{Stanford 语法树}
+Stanford Parser是由斯坦福自然语言处理小组实现的语法分析工具，也是Stanford CoreNLP的其中一个组件。它主要基于概率上下文无关文法（Probabilistic Context Free Grammar，PCFG，又称随机上下文无关文法，Stochastic Context Free Grammar，SCFG），能进行句法分析和语义依存分析（Semantic Dependency Parsing, SDP），生成语法树和依赖关系，是目前比较主流的一款语法分析工具。\par
+本文选择Stanford Parser作为句法分析器，因此在此简单介绍Stanford Parser的中心算法思想。\par
 
-本章主要介绍了脑电放大器无线同步触发器(Wireless Trigger)的系统实现，包括硬件的PCB制版和软件编程。实现的无线同步触发器系统可以完成硬件握手同步，接收来自脑电放大器的无线数据，接收刺激事件信号，并在标记刺激事件码后通过USB将数据返回给计算机。
-
-\section{硬件系统}
-
-\subsection{硬件概况}
-
-\begin{figure}[!hbp]
+定义：一个概率上下文无关文法是一个五元组($N,\Sigma ,S,R,P$)，其中$N$为非终结符集，$\Sigma$为终结符集，$S\in N$为开始符集，$R$为产生式集，对于任意产生式$r \in R$，其概率为$P(r)$。规则表示形式为：$A\rightarrow\alpha$,其中$A$为非终结符，$p$为$A$推导出$\alpha$的概率，即$p = P(A\rightarrow\alpha)$，该概率分布必须满足如下条件：$\sum{P(A\rightarrow\alpha)}=1$
+\cite{Cha93}\par
+对应于语法树，$N$相当于非叶节点，$\Sigma$为叶节点，$S$唯一且$S$为根节点，$R$为可行的路径，$P$为使用某条路径转移的概率。\par
+在实践中，$P(A\rightarrow\alpha)$一般设为训练集语料中$A\rightarrow\alpha$的最大似然估计，也即$P(A\rightarrow\alpha) = \frac{Count(A\rightarrow\alpha)}{Count(A)}$，其中$Count(A\rightarrow\alpha)$为已标注语料中出现该规则的次数，$Count(A)$为语料中出现该语法单元的次数。给定语法树后，就能计算出已标注词性的文本符合语法树的概率，而寻找对应的语法树可以转化为动态规划问题求解。\par
+明显，PCFG是CFG(上下文无关算法)的拓展，但上下文算法不含概率，无法解决语言的二义性问题，因此PCFG要比CFG更适合于自然语言处理。\par
+但由于PCFG等价地对待词组中的所有词，导致相同结构的PCFG对词汇信息和结构偏向不明显。词汇化的PCFG文法为每个语法树的每个节点添加首要词(HEAD)，从而克服了PCFG文法的弱点，取得了巨大的成功\cite{Klein2003b}。\par
+本文使用Factor模型，在Stanford Parser Factor模型中词汇化的PCFG方法用于同时表示语法结构与依赖关系，如图\ref{parser1}c。Klien等\cite{Klein2003a} 人认为，设$L$为词汇化的PCFG树，则$L$可以被一棵语法PCFG树$T$(如图\ref{parser1}a)和一棵结构相符合的依赖关系树$D$(如图\ref{parser1}b)确定。于是，基于文本构建$L$的问题就被转化为基于文本构建一对$T$，$D$，使$P'(T,D)$最大，这里$P'(T,D)$代表文本同时符合$T$，$D$的概率。Klein等人进一步假设$T$与$D$相对独立，也即$P'(T,D) = P'(T)P'(D)$，并分别使用动态规划构建概率最大的$T$，$D$，之后使用A*启发式算法搜索T和D的近似结合方式，该算法取得了不错的成果。\par
+Stanford Parser还对分析器做了一系列优化\cite{LevyM03} \cite{Marneffe06} \cite{Zhang2011} \cite{ChenM14} \cite{SocherBMN13} \cite{Nivre16} \cite{SchusterM16}，在此不做赘述。
+\begin{figure}
 \begin{center}
-\includegraphics[width=\textwidth]{graphic/PCB.jpg}
-\caption{硬件系统图 \label{hardwarePCB}}
+\includegraphics[width=\textwidth]{graphic/parser1.PNG}
+\caption{三种分析结构 \label{parser1}}
 \end{center}
 \end{figure}
-
-如图~\ref{hardwarePCB}所示，无线同步触发器(Wireless Trigger)由以下主要部分组成：
-\begin{itemize}
-\item 	蓝牙模块(右侧红色方框)，接收无线EEG脑电数据；
-\item	ARM微控制器芯片和精度为50PPM的8MHz有源晶振(左下方绿色圆框);
-\item  串口(USART)转USB芯片解决方案(蓝牙左上侧粉红方框);
-\item 	并口(中下方蓝色不规则方框),接收刺激事件信号Trigger。
-\end{itemize}
-
-其他还包括：
-\begin{itemize}
-\item 显示系统状态的LED指示灯(左上角黄色圆框);
-\item 调试测试端口和同步握手引脚端口(左侧圆孔区域);
-\item 5V转3.3V电压芯片(ARM芯片与蓝牙模块之间)。
-\end{itemize}
-
-	其各部分之间的连接关系如图~\ref{ComponentConn}所示。ARM芯片作为主控制单元控制时序，接收蓝牙模块从USART口发来的数据，并口读刺激事件信号，然后将数据整合后通过USB口返回计算机；考虑到USB协议的复杂性，采用了硬件的USART转USB芯片解决方案完成USB的实现。并口的数据通过微控制器上的8个IO口读取。此外，从图中还可以看到有两路USB通道，另外一路USB通道作为以后扩展功能预留，暂时不使用。
-
-
-\begin{figure}[!hbp]
+\subsection{基本流程}
+算法基本流程如图\ref{plainmodel1}\par
+\begin{figure}
 \begin{center}
-\includegraphics[width=0.6\textwidth]{graphic/componentConnect.PNG}
-\caption{硬件原理图 \label{ComponentConn}}
+\includegraphics {graphic/plainmodel1.png}
+\caption{知识模型基本流程图 \label{plainmodel1}}
 \end{center}
 \end{figure}
+伪代码如下：\par
+\lstset{language=python}
+\begin{lstlisting}
+def analyze(words, lang):
+  if lang == 'zh':
+    trees = parser_zh.parse(words)
+  else:
+    trees = parser_en.parse(words)
+  ans = 0
+  for tree in trees:
+    dfs(tree.root,tree)
+    ans += tree.root.sentiment
+  return ans
 
-\subsection{微控制器}
-	ARM微控制器采用意法半导体的STM32F103系列芯片，该芯片属于ARM Cortex M3系列，强调了操作的确定性以及性能，价格和功耗的平衡。STM32F103增强型系列芯片主频72MHz，具有1.25DMIPS/MHz的指令执行速率，此外还有单周期乘法指令和硬件除法指令等。在软件方面也提供了STM32固件库和完整开发例程，方便应用开发。本设计所使用的STM32F103RET6芯片具有5个USART端口，512Kbytes的片上Flash和48Kbytes的SRAM，LQFP64引脚封装，电源电压3.3V带部分管脚具有5V输入承受能力，能满足并口数据输入的要求。
+def dfs(node, tree):
+  node.phrase = ''
+  if not isleaf(node):
+    for child in node.daughterTrees:
+      dfs(child, tree)
+  if isleaf(node):
+    node.phrase = node.label
+  else:
+      for child in node.daughterTrees:
+        if lang == 'zh':
+          node.phrase = node.phrase + child.phrase
+        else:
+          if isW(child) or child.label == "n't":
+            node.phrase = node.phrase + child.phrase
+          else:
+            node.phrase = node.phrase + ' ' + child.phrase
+  found, node.sentiment = lookup_in_emotion(node.phrase)
+  if not found:
+    found, node.sentiment = lookup_in_degree(node.phrase)
+  if not found:
+    if not isleaf(node):
+      d = 0
+      e = 0
+      for child in daughterTrees:
+        if child.label == 'RB'
+          or child.label == 'AD':
+          d += child.sentiment
+        else:
+          e += child.sentiment
+      if d == 0:
+        node.sentiment = e
+      elif e == 0:
+        node.sentiment = d
+      else:
+        node.sentiment = d * e
+\end{lstlisting}
+算法首先将分词后的词汇输入到Stanford Parser中，每个短句将生成一棵独立的语法树。\par
+接着算法对每个短句所生成的语法树采用top-down递归遍历。\par
+本文主要使用两个词典，一个为情感词典emotion，另一个为程度词典degree。\par
+在递归的过程中，算法会首先在词典中查找子树所对应的短语，如果找到了对应的短语，则将短语所代表的情感强度或者程度强度设为该子树的强度，否则，分别统计子树的子节点的情感强度和程度强度，取其乘积作为该子树的强度。\par
+最后，算法将多棵语法树根节点的情感强度相加，得到整体情感强度。\par
+如图，对于“This is the right size for any use!  Uses little space and looks extremely good on the counter.”，Stanford Parser将会生成以下结果，可视化后相当于图\ref{fig:plainf2}和\ref{fig:plainf3}：\par
 
-	片上STM32的原理图如图~\ref{MCUSche}，图~\ref{MCUScheResetBoot}所示的左侧有电阻连接的三个管脚分别是两个boot管脚和一个Reset复位管脚，正常系统工作时需要将Reset引脚拉高~\footnote{参考STM32 Reference Mannual RM0008},另外两个boot引脚的电平高低将决定系统上电时加载程序的区域，本系统中都通过10K电阻接地，表示上电启动后使用FLASH存储器。右下方为8MHz的有源晶振原理图，JTAG端口是STM32的标准配置，其引脚的原理图连接在右中部，在这里简化了JTAG的管脚。右上方原理图是STM32的芯片供电。
+\begin{lstlisting}
+(ROOT
+  (S
+    (NP (DT This))
+    (VP (VBZ is)
+      (NP
+        (NP (DT the) (JJ right) (NN size))
+        (PP (IN for)
+          (NP (DT any) (NN use)))))
+    (. !)))
 
-\begin{figure}[!hbp]
+(ROOT
+  (S
+    (VP
+      (VP (VB Uses)
+        (NP (JJ little) (NN space)))
+      (CC and)
+      (VP (VBZ looks)
+        (ADJP (RB extremely) (JJ good))
+        (PP (IN on)
+          (NP (DT the) (NN counter)))))
+    (. .)))
+\end{lstlisting}
+
 \begin{center}
-\includegraphics[width=0.8\textwidth]{graphic/MCU_Schematic.PNG}
-\caption{微控制器原理图 \label{MCUSche}}
-\end{center}
+\begin{figure}
+\subfigure[语法树]{
+	\label{fig:plainf2}
+	\includegraphics[width=0.8\textwidth]{graphic/plainmodel2.png}
+}
+\subfigure[语法树]{
+	\label{fig:plainf3}
+	\includegraphics[width=0.8\textwidth]{graphic/plainmodel3.png}
+}
 \end{figure}
-
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=0.6\textwidth]{graphic/MCU_ResetAndBoot.PNG}
-\caption{微控制器复位和初始化引脚连接原理图 \label{MCUScheResetBoot}}
 \end{center}
-\end{figure}
 
-\subsection{USART转USB芯片解决方案}
-	USB被广泛应用在各种计算机及电子设备上，但是其软件实现复杂，为了简化问题，本设计中采用了CP2102的单芯片USART转USB解决方案完成USART协议到USB协议的转换，该芯片提供了内部完整的USB接收/发送协议不需要额外分立元件的支持，也不要外部时钟电路，图~\ref{USART2USBSch}所示是USART转USB的原理图，其中的电容和电阻起滤波和限流的作用。此外，在软件上也提供了计算机端的串口和USB的API函数，大大加快了开发时间。
-
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=0.8\textwidth]{graphic/CP2102_Schematic.PNG}
-\caption{USART转USB芯片原理图 \label{USART2USBSch}}
-\end{center}
-\end{figure}
-
-图~\ref{USART2USBSch}中到微控制器USART端口的数据通道是管脚PB10和PB11，到USB的数据传输通道是CP2102的4和5引脚引出的D+和D-。USB传输的是差分信号，该信号先经过一个ESD保护芯片USBLC6后到达USB端口，由于现在USB供电很方便，而且CP2102也设计了3.3V电压输出能力，因此保留了CP2102引脚6上的电路作为输出端使用，但由于其最大供电电流为100mA，实际电路的3.3V供电由另一个电源模块LM1117经5V转换后提供最大800mA的输出能力。
-
-\subsection{蓝牙模块\label{subsec:buletooth}}
-	蓝牙模块采用了重庆金瓯的串口USART蓝牙模块BTM0704，该模块兼容蓝牙规范2.1+EDR，有自动节能模式，支持从9600bps到921600bps的波特率。底层协议支持前向纠错(1/3FEC和2/3FEC)和数据反馈重传(ARQ)。连接原理图如图~\ref{BlueToothConn}所示，CLR和SLP分别为蓝牙模块的状态切换开关和睡眠唤醒开关，当置高时蓝牙模块正常工作，LNK为状态输出管脚，当为高电平时表示蓝牙模块已经成功与其他蓝牙模块建立连接。3到6管脚的CTS，RTS，RXD和TXD为硬件流控的USART端口。
-
-
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=0.6\textwidth]{graphic/BlueTooth_Schematic.PNG}
-\caption{蓝牙模块连接原理图 \label{BlueToothConn}}
-\end{center}
-\end{figure}
-
-\subsection{电源电路}
-	系统由USB端口提供5V电压，经LM1117稳压至3.3V输出，LM1117芯片具有800mA输出能力和 的电压精度，而且电路简单。原理图如图~\ref{PowerSch}所示。
-
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=0.6\textwidth]{graphic/PowerSource.PNG}
-\caption{电源芯片原理图 \label{PowerSch}}
-\end{center}
-\end{figure}
-
-\section{软件设计}
-
-	STM32在软件开发方面有很好的支持，意法半导体提供了STM32固件库以及相应的例程。无线同步触发器的代码使用基于C的STM32固件库函数编写。本部分介绍了无线同步触发器软件设计的算法，以流程图和编程思路为主，\ref{sec:STM32Firmware}节具体介绍了部分代码的实现。
-
-\subsection{系统软件流程}
-	要实现无线同步触发，根据 第\ref{chp:protocol}章 协议设计 和 第\ref{chp:implementation}章 硬件系统的描述，需要经过如下几个步骤：
+算法分别从左右两棵树根节点开始分析，逐步到达叶节点，以右边的树为例，该树对应"Uses little space and looks extremely good on the counter."。\par
 \begin{enumerate}
-\item 	同步握手，子钟启动和对准；
-\item 	EEG脑电数据无线接收；
-\item 	刺激事件码(Trigger)采集；
-\item 	数据同步过程(将刺激同步信号标记到相应发生该刺激时的EEG脑电信号上)；
-\item	数据返回计算机。
-\end{enumerate}
 
-\subsection{握手协议实现}
-	子钟对准协议在第\ref{chp:protocol}章阐述，其软件流程如图~\ref{hardhandshankeSoftwareFlow}，具体软件实现时在输入端读取到正确电平以后会再延迟15到20ms以再次确认输入电平，一方面作为软件防抖措施，另一方面也给确定输入状态后输出状态做了缓冲，为同步方从输出状态转到检测输入状态保留了时间。
+\item 在情感词典中，"little"的情感强度为-1.0，因此"little space"，"Use little space"的情感强度都被标注为-1.0。
+\item "extremely"在程度词典中被标注为+2.0，"good"在情感词典中被标注为+1.0，因此"extremely good", "looks extremely good on the counter."被标注为+2.0
+\item 综上，"Uses little space and looks extremely good on the counter."被标注为+1.0
+\item 右边的树也遵循此流程，极性为+1.0，将子句合并考虑，得到该语句整体情感强度为+2.0。
+\end{enumerate}\par
+最终，算法结果可视化如图\ref{fig:plainf4} \ref{fig:plainf5}。
 
+\begin{center}
+\begin{figure}
+\subfigure[知识模型结果可视化]{
+	\label{fig:plainf4}
+	\includegraphics[width=0.8\textwidth]{graphic/plainmodel4.png}
+}
+\subfigure[知识模型结果可视化]{
+	\label{fig:plainf5}
+	\includegraphics[width=0.8\textwidth]{graphic/plainmodel5.png}
+}
+\end{figure}
+\end{center}
+
+\section{深度学习相关算法}
+本节将从人工神经网络(Artificial Neural Networks, ANN)开始，分别简单介绍反向传播网络(Back Propagation, BP)，卷积神经网络(Convolutional Neural Networks, CNN)，循环神经网络(Recurrent Neural Networks, RNN)，长短时记忆型循环神经网络(Long Short Term Memory, LSTM)，优化算法等模型中可能用到的相关算法。
+\subsection{人工神经网络}
+人工神经网络提供了一种普遍且实用的方法从样例中学习值为实数，离散值或向量。ANN在一定程度上受到生物大脑中神经元相互连接的模型的启发，它由许多基本单元构成，每个单元有一定的实值输入（该输入可能来自外部也可能是其它单元的输出），同时产生单一的实数值输出。常见ANN的基本单元如图\ref{ann1}:
 \begin{figure}[!hbp]
 \begin{center}
-\includegraphics[width=\textwidth]{graphic/handshakeSoftwareFlow.png}
-\caption{握手软件流程图 \label{hardhandshankeSoftwareFlow}}
+\includegraphics[width=0.4\textwidth]{graphic/ann1.png}
+\caption{ANN基本单元\cite{ml2006} \label{ann1}}
 \end{center}
 \end{figure}
-
-\subsection{EEG脑电数据无线接收}
-为了防止无线数据传输导致数据包丢失，系统中设置了两个数组作为乒乓数组，轮流存储通过蓝牙接收到数据，如图~\ref{StreamLineArray}所示，数组p在完成无线脑电数据DMA接收以后立即由数组q代替进行数据接收，而数组p中的数据则可以进行处理。DMA接收数据使微控制器能在收数据的同时对数据进行处理，完成流水线作业。
-
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=\textwidth]{graphic/PqArrayStreamLine.PNG}
-\caption{乒乓数组接收脑电无线数据-流水线 \label{StreamLineArray}}
-\end{center}
-\end{figure}
-
-\subsection{SysTick计数-同步的基础\label{sec:systick}}
-	相同的基准时钟是实现不同平台软件之间移植的基础，STM32中有一个专门的计数器SysTick负责这个基准时钟的计数，而本系统则利用了这个计数器来产生0.1ms一次的中断计数，在中断中完成同步计数器值增加。这部分可以按如下方式工作：首先设定系统时钟为72MHz以后，利用STM32提供的固件库函数，设定Systick的自动重载值为7200(72MHz的主频振荡7200次即为0.1ms)。另外一个在此处完成的操作是从并口读取来自刺激呈现系统的刺激事件信号，也即本系统的Trigger，这样的软件设计保证了刺激事件精度最高为0.1ms/次。
-
-\subsection{刺激事件码(Trigger)读取}
-	如第\ref{sec:systick}节所述，在每次递增系统同步计数器的值以后完成一次并口刺激事件码的读取，这里还有一个实际问题需要处理。并口读到的有效刺激信号是一个有一定宽度的高电平，通常的持续时间在10到50ms之间，以15ms为例，如果每0.1ms读取一次并口数据，那么15ms的一个高电平就会被读取150次，然而实际上这150个高电平只是一个刺激事件信号(Trigger) 。因此在软件上需要做如下处理使这连续的150个刺激信号被认为是1个刺激事件信号。\textbf{操作如下：}
-
-	当在读取到一个高电平时，比较上一次读取到高电平信号时的同步计数器值x(x初始化为0)是否是当前读取到高电平时的同步计数器值 减1，如果是，则忽略这个高电平，否则将这个高电平及该时刻同步计数器值保存，最后一步是不管这个高电平是否被忽略，都将当前的同步计数器值保存为x，这样当一个高电平结束时，其被记录为Trigger的信号是这个Trigger第一个高电平出现时的同步计数器值，而x将保存该高电平最后一个时刻的同步计数器值。只要两个刺激事件信号之间有0.1ms的低电平间隔，那么就可以判断为两个不同的刺激同步信号。该过程的流程图如图~\ref{readTrigger} 所示。
-
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=0.5\textwidth]{graphic/ReadTriggerSoftFlow.png}
-\caption{刺激事件信号不重复读取软件流程图 \label{readTrigger}}
-\end{center}
-\end{figure}
-
-\subsection{脑电EEG信号与Trigger同步\label{EEGSynTrigger}}
-
-	在第\ref{chp:protocol}章 协议设计 中已经论述过了脑电放大器的数据包帧号与无线同步触发器的同步计数值之间的映射关系。这一部分讨论具体实现。
-
-	每次DMA传输都会接收到一个完整的数据包，有帧头和数据信息，在非自适应设计下，进行刺激事件码同步的双方已知对方的通信参数，自适应情况下，无线同步触发器通过接收自适应参数帧得到这些参数。无线同步触发器根据接收到的帧号计算出其对应的同步计数值范围，然后根据每个包中的采样点数得出每个采样点对应的同步计数值的个数，把相应的同步刺激信号标记到对应的EEG脑电采样点数据后面。
-
-	以记录40ms数据，帧号(FrameID) 为1的数据包为例，假设该包只有4个采样点，即10ms一次采样，100Hz采样速率；每个采样点两通道数据, 根据图~\ref{CorrespondingFIDCounter}给出的对应关系，FrameID为1的包对应的是400到799的计数值，图~\ref{TriggerPackage1}给出了每个数据通道的采样时刻和所对应的计数值范围。
-
-如果程序查询存储刺激事件的数组发现一个计数值为659的刺激事件信号。从图~\ref{TriggerPackage1}中可以很容易的确定出插入该刺激事件的位置为600~700数字后面的Trigger通道。
-
-计算过程如下:
-\begin{itemize}
-\item 计算每个采样点平均分配到的计数值
+其函数可以写作
 \begin{equation}
-	\frac{400}{4} = 100
+o(\vec{x}) = f(\vec{w} \vec{x} - b)
 \end{equation}
-\item 刺激事件时刻相对于该包起始时刻的偏移与上式的商
+其中$\vec{x}$为输入，$f$为激活函数，负责将线性输出转变为非线性输出以增加神经网络的表达能力，$\vec{w}$为权重(weights)，$b$为偏置(bias)，与$\vec{w} \vec{x} $具有相同形状。$\vec{w}$与$b$通常是神经网络训练的主要对象。
+常用的激活函数有sigmoid(又称logistic函数),tanh,ReLu(Rectified Linear Unit)等，具体公式如下：
+\begin{center}
+\begin{tabu}  to 0.8\textwidth{X|X[3]|X[3]}
+\hline
+函数名称 & 函数 & 导数 \\
+\hline
+sigmoid &
+$$
+f(y) = \frac{1}{1 + e^{-y}}
+$$
+&
+$$
+\frac{df(y)}{dy} = f(y) \times (1 - f(y))
+$$
+\\ \hline
+tanh &
+$$
+f(y) = tanh(y) = \frac{e^x - e^{-x}}{e^x + e^{-x}}
+$$
+&
+$$
+\frac{df(y)}{dy} = 1 - {f(y)}^2
+$$
+\\ \hline
+ReLU &
+$$
+f(y) = \left\{\begin{matrix}
+y & if\ y > 0\\ 
+0 & if\ y \leq 0
+\end{matrix}\right.
+$$
+&
+$$
+\frac{df(y)}{y} = \left\{\begin{matrix}
+1 & if\ y > 0\\ 
+0 & if\ y \leq 0
+\end{matrix}\right.
+$$
+\\ \hline
+\end{tabu}
+\end{center}
+由于sigmoid函数和tan函数的导数是线性输出的二次多项式，在训练时易导致梯度爆炸或梯度消失问题，故本文中线性层之间的激活函数主要选用ReLU函数。\par
+一个较典型的人工神经网络通常由多层基本单元构成，如图\ref{ann2}，通常有输入层，隐含层，输出层，各层之间通过激活函数将线性输出转化为非线性输出。\par
+
+\begin{figure}[!hbp]
+\begin{center}
+\includegraphics[width=0.4\textwidth]{graphic/ann2.png}
+\caption{典型ANN结构\cite{ml2006} \label{ann2}}
+\end{center}
+\end{figure}
+
+\subsection{损失计算函数}
+本文中主要使用带有softmax的交叉熵函数计算网络输出值和目标值之间的误差。softmax函数是sigmoid函数在多分类问题上的拓展。
 \begin{equation}
-	\frac{659 - 400}{ 100 } = 2 
+softmax(t_i) = \frac{e^{t_i}}{\sum_j{e^{t_j}}}
 \end{equation}
-\end{itemize}
+其中$\vec{t}$为网络的输出，其长度为类别总数。
+\begin{equation}
+loss = crossentropy(\vec{S}, \vec{L}) 
+= \sum_i {(L_i * log(s_i))}, \vec{S} = softmax{(\vec{t})}
+\end{equation}
+其中$\vec{L}$为网络的目标值，其长度为类别总数。
 
-因此插入刺激事件的位置就是从该数据包第一个采样点开始的第(2 + 1)个采样时刻。
+\subsection{反向传播网络}
+反向传播算法是目前多层神经网络主要的训练方法，它主要基于微积分的链式求导法则\ref{chainrule}，对神经网络从输出层向上进行快速求导。
 
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=\textwidth]{graphic/TriggerPackageStruct.PNG}
-\caption{带Trigger帧号为1的数据包 \label{TriggerPackage1}}
-[图中未完全表示帧头信息，只给出帧号字段]
-\end{center}
-\end{figure}
-
-	操作过程如下：
+\begin{equation} \label{chainrule}
+(f(g(y)))' = f'(g(y)) * g'(y)
+\end{equation}
+反向传播神经网络的训练基本流程是：\par
 \begin{enumerate}
-\item 	Trigger数组中是否有刺激事件信号?有则到2，否则到7;
-\item 	根据当前接收到的数据包的FrameID，该刺激事件信号是否在其FrameID映射的计数值范围内?如果是则到3，否则到7;
-\item 	刺激事件信号的记录时间减去该数据包帧号对应的起始时间,本例中为$659 – 400 = 259$;
-\item 	已知十个计数同步值对应一个采样点($400/4 =100$), 把上一步的结果除以10得商和余数$259 \div 100 = 2$余$29$;
-\item	将该刺激事件信号标记到该数据包从第一个采样点开始的第$2+1$个采样点上; 
-\item	返回1继续判断刺激事件信号数组中是否还有Trigger;
-\item	函数返回。
+\item 初始化网络
+\item 首先将输入沿前向传播，求出误差
+\item 使误差沿网络反向传播，计算梯度，从而使用优化方法更新权值。
+\item 如果达到终止条件，跳出循环，否则，重复第2-4步。
 \end{enumerate}
 
-\subsection{从数据接收缓冲区到数据发送缓冲区}
-无线接收到的脑电EEG数据在由乒乓数组接收以后，需要在移动到发送缓冲区时在每个采样点后面留出一个通道存放刺激事件。该操作原本尝试使用DMA的Memory2Memory方式完成，实际测试之后发现该过程启动速度达到肉眼可辨(需要秒级单位完成)，后改用For循环的方式完成。
-
-仍以帧号为1的数据包为例，图~\ref{Receive2Send}展示了从数据接收到插入刺激事件信号发送的全过程，每通道数据全部用11 11 11 11表示，所有数字均为\textbf{16进制},在发送缓冲区中用下划线标明同一个数据通道的数据。
+\subsection{优化方法}
+在神经网络上训练时，其假设空间为所有可能的实数权向量的集合（将偏置等参数也视为权向量），一个高维空间。当误差函数和目标值已知时，假设空间中会形成一个误差曲面，而训练的目的就是尽可能找到该误差曲面的最小值。\par
+如图\ref{ann3}是二维假设空间中误差曲面的假想图，可以看出该误差曲面是具有单一全局最小值的抛物面，沿梯度方向可以到达该最小值点。\par
 \begin{figure}[!hbp]
 \begin{center}
-\includegraphics[width=0.6\textwidth]{graphic/Receive2SendBuffer.PNG}
-\caption{脑电数据从接收缓冲区到发送缓冲区的移动 \label{Receive2Send}}
-[发送缓冲区中所示唯一的一个01即为从并口插入的刺激事件码]
+\includegraphics[width=0.4\textwidth]{graphic/ann3.png}
+\caption{误差曲面\cite{ml2006} \label{ann3}}
 \end{center}
 \end{figure}
+\subsubsection{随机梯度下降方法}
+为了确定一个使误差最小化的权向量，梯度下降搜索从初始权向量出发，每一步都沿梯度方向修改该权向量，直到到达全局最小误差点。\par
+该训练法则可以写为：\cite{ml2006}
+\begin{equation}
+w_i \leftarrow w_i + \eta\Delta w_i
+\end{equation}
+其中$\Delta w_i$为误差相对于分量$w_i$方向上的梯度，$\eta$为控制步长的学习速率。\par
+但梯度下降方法每一步都需要计算所有训练样例上的整体误差，同时，梯度下降方法很可能收敛到局部极小值。\par
+为了缓解这些困难，人们提出了随机梯度下降算法，该算法根据每个训练样例batch单独计算误差来更新权值，相当于为每个batch单独定义不同的误差函数。因此，如果误差平面上有多个局部极小值，随机梯度下降算法可以通过不同的误差避免陷入局部最小值。
+\subsubsection{Adagrad方法}
+虽然随机梯度下降方法为避免陷入局部最小值提供了可行的方法，但梯度下降方法对所有需要更新的权向量都使用了全局学习速率，而全局学习速率可能不适应于所有的参数。Adagrad(Adaptive Subgradient)方法\cite{adagrad}能够对每个参数自适应不同的学习速率，对稀疏特征使用更大的学习速率，因此更适应于处理稀疏数据。\par
+其学习速率为：
+\begin{equation}
+\eta_{t, i} = \frac{\eta_0}{ \sqrt{\sum_{j=1}^{t}{G_{j,i}^2} + \epsilon}}
+\end{equation}
+其中,$\eta_{t, i}$为t时刻对于权重$w_i$的学习速率，$\eta_0$为初始学习速率，$\epsilon$为平滑常数，用于防止分母为0，$G_{j,i}$代表j时刻$w_i$方向上的梯度。
 
-
-\section{STM32固件库编程\label{sec:STM32Firmware}}
-	本部分主要描述了如何使用STM32固件库编写系统固件。为了能涉及STM32固件库编程的多个方面，同时又具有完整性，这里把无线同步触发器如何接收EEG脑电数据的过程分解为几个部分。这个过程是一个使能USART串口并通过DMA方式传输EEG数据，在数据传输结束后进入中断进行数据处理的过程。
-
-\subsection{系统初始化}
-类似一般的嵌入式或者单片机，STM32的工作过程可简单分为三个步骤:
-\begin{itemize}
-\item	系统时钟初始化；
-\item	外设、中断、DMA等初始化；
-\item	正常的数据流操作；
-\end{itemize}
-	其中STM32的时钟初始化过程需要调用PLL锁相环使外部时钟倍频以达到72MHz的最高频率。此外STM32的系统设计中涉及到三个总线时钟，分别是AHB，APB1和APB2总线，其中APB1的最高总线频率只能达到36MHz/24MHz，另外两条总线的数据频率可以为72MHz/48MHz。初始化系统时钟的代码比较长，在此不予展示，参见\textit{附录\ref{appendix}}。由于不同的外设连接在有不同时钟频率的总线上，而时钟又是数字电路工作的前提条件，所以在初始化外设前需要首先使能系统时钟和该外设时钟。STM32的固件库提供了非常直观的函数，比如代码
-\begin{center}
-  \verb|RCC_APB2PeriphClockCmd(RCC_APB2Periph_USART1, ENABLE);|
-\end{center}
-
-使能了挂载在APB2总线上的USART1的时钟：
-
-	对于STM的外设初始化，STM32固件库使用了C语言结构体(struct)来设置参数，避免了以往用C或者汇编配置外设直接写寄存器的混乱状况。以IO口的端口初始化为例，首先定义结构体变量实例：
-\begin{center}
-\verb|GPIO_InitTypeDef  GPIO_InitStructure;|
-\end{center}
-IO端口有两个参数：端口速率和输入输出模式，如下代码使能端口A的引脚9为最高速率50MHz的推挽输出端口，其他可设置参数可以参考STM32F10xFWLib(STM32固件库)。
- \textit{\color{blue}{//IO口9}}
-
-\verb|GPIO_InitStructure.GPIO_Pin = GPIO_Pin_9;| 
-
-\textit{\color{blue}{//设置端口速率为50MHz}}
-
-\verb| GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;|
-
- \textit{\color{blue}{//设置端口工作模式为推挽输出}}
-
-\verb|GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;|
-
- \textit{\color{blue}{//初始化该结构体到端口A}}
-
-\verb|  GPIO_Init(GPIOA, &GPIO_InitStructure);|
-
-\subsection{中断机制}
-	中断机制不管是在硬件上还是软件实现上都在STM32上得到了优化。硬件上，STM32的中断向量控制器(NVIC)与微处理器核采用了紧耦合的方式，减少了中断处理延迟和对于晚到中断的处理。所有中断，包括ARM Cortex内核的中断都由中断向量控制器来管理。软件方面，固件库对于中断也有很好的支持，基本属于傻瓜式开发。本系统的实现中也使用到了一些中断，主要是DMA中断，最初的源代码包括了引脚事件中断，后来由于同步精度的需要没有使能该中断而是使用了轮询的方式完成。
-
-	中断的初始化的步骤：
+\subsubsection{ADADELTA方法}
+Zeiler等\cite{adadelta}人认为Adagrad方法存在三个问题:
 \begin{enumerate}
-\item	设置中断向量控制器的优先级组；
-\item	设置需要使能的中断的优先级；
-\item	初始化中断相关的外设；
-\item	使能中断；
-\item	在中断函数中编写中断处理代码；
-\item	离开中断时清零中断标记位；
+\item 其学习率单调递减，训练后期学习率过小。
+\item 需要手工设置一个全局的初始学习率。
+\item 更新$X_t$时存在单位不统一现象。
 \end{enumerate}
-
-STM32的中断向量控制器提供了5组优先级等级，主要是用于当多于一个中断事件发生时决定NVIC以何种顺序和优先级响应各中断。可设置的中断优先级分组如图~\ref{NVICPriGroup}。以NVIC\_{}PriorityGroup\_{}1为例，C代码:
-
-\verb|NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);|
-
-使能该组。在接下来的具体外设中断设置中阐明各个组的含义。
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=\textwidth]{graphic/NVIC_PriorityGroup.PNG}
-\caption{STM32中断矢量控制器中断优先级分组 \label{NVICPriGroup}}
-\end{center}
-\end{figure}
-
-以使能DMA在USART1端口的中断为例，STM32的固件库中的每个中断都对应有两个层次的中断优先级，一个是抢占式优先级，即对应图~\ref{NVICPriGroup}中的pre-emption priority，另一个是次优先级即subpriority。抢占式优先级主要是决定中断嵌套，比如系统当前正在处理中断1，此时中断事件2在中断1还没有被处理完的情况下发生了。如果中断事件2的抢占式优先级高于中断事件1，那么微控制器就会保存中断事件1的现场，先让中断事件2执行，等中断事件2结束了再恢复中断事件1的现场让其继续执行，即所谓中断嵌套。那么此优先级如何工作？继续刚才的例子，如果中断事件2的抢占式优先级比中断事件1低，他就会等待，如果是中断事件2和事件3在系统处理中断事件1时同时挂起了，并且这两者的抢占式中断优先级都没有中断1高，此时次优先级高的就会在中断事件1结束后被优先响应。在STM32中，编号小表示优先级越高。
-
-回过头来看一下中断优先级分组，所谓的中断优先级分组1(NVIC\_{}PriorityGroup\_{}1),参看图~\ref{NVICPriGroup}实际含义就是在系统中分配的抢占式优先级可以是等级0或者等级1，这个只需要1bit表示就可以了。而次优先级可以有8个等级，从0到7，用3bit表示。其他的中断优先级分组概念类似。
-
-如下代码配置了DMA1通道6的中断优先级(接收脑电EEG数据的DMA通道)：
-
-\begin{verbatim}
-	NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel6_IRQChannel;
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;	
-	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_Init(&NVIC_InitStructure);
-\end{verbatim}
-
-可以看到，该中断事件具有等级1的抢占式优先级和等级0的次优先级，即当该中断执行时，抢占式优先级为0的中断可以嵌套该中断。
-
-\subsection{串口USART初始化}
-在中断使能之前还需要一些操作来初始化外设，接收EEG脑电数据就需要初始化串口USART。
-
-初始化串口之前简单介绍一下串口的工作原理，不同于USB协议复杂的实现，串口协议采用串行通信模式，完成通信最少需要三个引脚，分别为地(GND)，信号输入(RXD)和信号输出(TXD)，如果需要传输上的控制，还可以有CTS和RTS引脚，这种方式称为硬件流控的串口，本质上即当一方要发送数据给另一方时，先通过引脚告知对方将有数据。如图~\ref{USARTHardFlow}所示为硬件流控的原理连接，去掉两边的CTS和RTS即为无硬件流控的基本设置(图中没有画地线GND)。
-
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=\textwidth]{graphic/USART_hardwareControl.PNG}
-\caption{两个USART(串口)之间硬件流控连接图 \label{USARTHardFlow}}
-\end{center}
-\end{figure}
-
-以上是完成USART串口通信所需要完成的硬件连接，软件编程上需要知道的串口通信的参数：
-\begin{itemize}
-\item	串口号，如”COM1”；
-\item	通信双方约定的波特率，即每秒传送多少个bit(典型的有9600bps,115200bps)；
-\item	停止位 (有1bit,1.5bit和2bit)；
-\item	数据位(8bit,9bit为主)；
-\item	校验位(奇校验和偶校验);
-\item	是否采用硬件流控的方式通信;
-\end{itemize}
-
-	任何想进行串口通信的双方必须具有相同的上面六项的设置。串口通信的其他方面由系统底层实现，在此不多赘述。
-
-
-在STM32中，初始化串口的步骤描述如下:(以使能USART2设置为硬件流控为例)
-
-1.使能STM32对应USART2的端口的四个管脚，其中RXD和CTS设置为输入，TX和RTS设置为输出。代码如下：
-
-\textit{\color{blue}{//使能端口时钟}}
-
-\verb|RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA, ENABLE);|
-
-\noindent\textit{\color{blue}{//设置USART2的TXD和RTS端口为端口第二功能的推挽输出(默认管脚作为普通IO口使用)}}
-
-\begin{verbatim}
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_PP; 
-  GPIO_InitStructure.GPIO_Pin = GPIO_Pin_2 | GPIO_Pin_1;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
-\end{verbatim}
-
-\textit{\color{blue}{//设置USART2的RXD和CTS为输入引脚}}
-
-\begin{verbatim}
-GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-GPIO_InitStructure.GPIO_Pin = GPIO_Pin_0 | GPIO_Pin_3;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
-\end{verbatim}
-
-2.设置USART2端口的相关参数
-
-\textit{\color{blue}{//使能USART2时钟}}
-
-\verb|RCC_APB1PeriphClockCmd(RCC_APB1Periph_USART2, ENABLE);|
-
-\textit{\color{blue}{//设置波特率为115200,8bit每次传输8bit数据长度，1停止位，无奇偶校验，采用硬件//流控，只使能输入(接收蓝牙数据)}}
-
-\begin{verbatim}
-  USART_InitStructure.USART_BaudRate = 115200;
-  USART_InitStructure.USART_WordLength = USART_WordLength_8b;
-  USART_InitStructure.USART_StopBits = USART_StopBits_1;
-  USART_InitStructure.USART_Parity = USART_Parity_No ;
-  USART_InitStructure.USART_HardwareFlowControl = USART_HardwareFlowControl_RTS_CTS;
-  USART_InitStructure.USART_Mode = USART_Mode_Rx; 
-  USART_Init(USART2, &USART_InitStructure);
-  USART_Cmd(USART2, ENABLE);
-\end{verbatim}
-
-到此，串口USART2设置完毕，可以通过STM32固件库提供的相关USART发送和接收函数通过USART2传输数据。
-
-\subsection{DMA}
-
-DMA方式用于传输大量数据，该方式通过硬件实现数据传输。由于独立于微控制器核心处理单元，可以独立进行，因此编程配置以后不需要微控制器程序干预就可以自动运行，数据传输完成后再通过中断或标记位通知微控制器，以节省系统处理资源，DMA操作占用系统总线。无线同步触发器有大量数据需要传输，因此DMA方式是很好的选择。
-
-无线同步触发器中DMA操作主要有两个：
-\begin{itemize}
-\item	从蓝牙USART接收的数据到片上存储器的存储；
-\item	从添加Trigger以后的存储器上数据到发往计算机的USART端口的数据；
-\end{itemize}
-
-这里主要以1过程作为介绍的重点，以使前面的整个过程完整。
-
-	DMA的配置和前面的类似，也需要使能时钟，然后通过设置结构体的各个值来完成初始化操作。首先开始介绍DMA传输软件设置上需要知道的一些信息，由于硬件实现都已经在STM32的片内完成，DMA的所有的配置工作都通过编程实现。
-
-	DMA传输需要一个数据源地址和一个数据目的地地址，还需要知道每次DMA操作需要从源地址向目的地址传输的数据量。首先，源地址和目的地地址跟STM32的存储器结构有关，一般的存储器结构都是线性的，也就是地址都是递增的，STM32在设计时会分配某一段地址范围，比如0x4000 4400到0x4000 4800给USART2，跟USART2相关的各种配置寄存器和数据寄存器的值都可以通过读取这些地址得到到(可以是把这些寄存器跟这些地址做了映射，也可以是该地址直接就代表存储器里面的一个区域，具体定义与底层实现有关)，这里地址0x40004404是USART2的数据缓冲区地址，每次读取这个地址的值或者往这个地址写数据会启动USART2的数据接收和数据发送。此外，每次在C语言里定义一个变量时，该变量也会具有一个类似的存储器地址，这个工作由C编译器或者系统完成了。
-
-	在设置DMA的源地址和目的地地址时，就需要知道这两个绝对地址，由于想进行的操作是从USART2读取数据到存储器的某一区域做存储，因此源地址就是0x40004404,而目的地址可以是C语言中定义的一个数据的起始地址(可经过取地址(\verb|&|)操作获得)。
-
-	此外，如果DMA数据操作是从一个USART到另外一个USART，那么源地址和目的地址可以不变，但是如果数据进入存储器，不同的数据在同一个地址上会覆盖。因此还需要在DMA每传输一个单位数据以后进行地址的递增，以便把从USART2收到的数据按顺序存放入存储器。这里还有一个问题是，需要设置每次传输的基本数据单位，可以是字节(1 bytes)，可以是半字(half word = 2 bytes)也可以是字(word = 4bytes)。
-
-	另外还有一些设置决定是否在本次DMA的操作完成以后立即进行下一次DMA操作，DMA操作是不是从存储器的一个局域移动数据到存储器的另一个区域等。
-
-配置代码描述如下：
-
-\textit{\color{blue}{//使能DMA1的时钟}}
-
-\verb|   	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);|
-
-\textit{\color{blue}{//恢复DMA设置到默认值}}
-
-\verb|	DMA_DeInit(DMA1_Channel6);|
-
-\textit{\color{blue}{//配置DMA操作的外设地址，定义\# define USART2\_{}DR\_{}Base  $0x40004404$}}
-
-\verb|	DMA_RX_InitStructure.DMA_PeripheralBaseAddr = USART2_DR_Base;|
-
-\textit{\color{blue}{//配置DMA操作的存储器地址，知道这是一个地址就可以,u32表示该地址为32bit无符号数}}
-
-\verb|	DMA_RX_InitStructure.DMA_MemoryBaseAddr = (u32)(&(pDataFrame->StationNum));|
-
-\textit{\color{blue}{//每次DMA使能后传输的数据量,RecBUFFERSIZE是一个变量}}
-
-\verb|	DMA_RX_InitStructure.DMA_BufferSize = RecBUFFERSIZE-1;	|
-
-\textit{\color{blue}{//配置DMA的数据传输方向是从外设到存储器(外设为源头)}}
-
-\verb|	DMA_RX_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;|
-
-\textit{\color{blue}{//外设地址在每个DMA原操作后不增加}}
-
-	\verb|DMA_RX_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;|
-
-\textit{\color{blue}{//外设地址在每个DMA原操作后增加}}
-
-	\verb|DMA_RX_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;|
-
-\textit{\color{blue}{//定义每次DMA原操作传输的数据为1字节,那么BufferSize * 1字节就是一次DMA操作传输的数据量}}
-
-\verb|	DMA_RX_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;|
-
-\textit{\color{blue}{//存储器地址递增的单位，也是一次DMA源操作接收的数据量大小}}
-
-\verb|	DMA_RX_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_Byte;|
-
-\textit{\color{blue}{//普通DMA模式，在本次DMA传输完成以后不再进入下一次DMA循环，BufferSize清零}}
-
-\verb|	DMA_RX_InitStructure.DMA_Mode = DMA_Mode_Normal;|
-
-\textit{\color{blue}{//当几个DMA请求同时被挂起时，当前DMA请求的优先级}}
-
-\verb|	DMA_RX_InitStructure.DMA_Priority = DMA_Priority_VeryHigh;|
-
-\textit{\color{blue}{//本DMA操作不是存储器到存储器的数据移动}}
-
-\verb|	DMA_RX_InitStructure.DMA_M2M = DMA_M2M_Disable;|
-
-\textit{\color{blue}{//把刚才上面结构体定义的参数初始化到DMA1的通道6}}
-
-\verb|	DMA_Init(DMA1_Channel6, &DMA_RX_InitStructure);|
-
-以上为DMA的配置过程，接下来阐明DMA1的通道6的含义图~\ref{DMACorresponding}表示了每个DMA通道对应的能响应的外设。在DMA1的通道6可以看到USART2\_{}Rx的字样，表示的就是该通道能响应USART2的接收请求，其他的外设请求响应的由其他DMA通道响应。由于DMA的优先级只有四级VeryHigh,High,Medium,Low。所以当两个具有相同优先级的DMA请求被挂起时，系统会优先响应通道号小的DMA请求，如图~\ref{DMACorresponding}右侧所示。
-
-	因此在上面的DMA初始化以后还需要如下代码完成这个对应关系:
-
-	\verb|USART_DMACmd(USART2, USART_DMAReq_Rx, ENABLE);|
+因此Zeiler等人提出了ADADELTA方法，用于改进Adagrad方法。ADADELTA算法基于牛顿迭代法，其学习速率不再基于全部梯度平方之和，而主要基于最近的梯度。
+其学习速率更新规则为：
+\begin{equation}
+E[g^2]_t = \rho E[g^2]_{t-1} + (1-\rho )g_t^2
+\end{equation}
+\begin{equation}
+\eta_t =  -\frac{\sqrt{E[\eta^2]_{t-1} + \epsilon}}{\sqrt{E[g^2]_{t} + \epsilon}}g_t
+\end{equation}
+\begin{equation}
+E[\eta^2]_t = \rho E[\eta^2]_{t-1} + (1-\rho )\eta_t^2
+\end{equation}
+其中$g_t$为t时刻的梯度，$\rho$为衰减速率，$\epsilon$为平滑常数。
+
+\subsubsection{ADAM方法}
+ADAM(Adaptive Moment Estimation)\cite{adam}根据损失函数对每个参数的梯度的一阶矩估计和二阶矩估计动态调整针对于每个参数的学习速率，其中一阶矩的作用类似于冲量项(momentum)，二阶矩则与ADADELTA算法相似。ADAM算法迭代更新步长有一个较为稳定的范围，因此更适合RNN。
+
+\begin{equation}
+m_t = \beta_1 m_{t - 1} + (1 - \beta_1)g_t
+\end{equation}
+\begin{equation}
+v_t = \beta_2 m_{t - 1} + (1 - \beta_2)g_t^2
+\end{equation}
+\begin{equation}
+\hat{m_t} = \frac{m_t}{1 - \beta_1^t}
+\end{equation}
+\begin{equation}
+\hat{v_t} = \frac{v_t}{1 - \beta_2^t}
+\end{equation}
+\begin{equation}
+\eta_t = -\frac{\eta}{\sqrt{\hat{v_t} + \epsilon}} \hat{m_t}
+\end{equation}
+实践中$\beta_1=0.9$，$\beta_2=0.999$，$\epsilon = 1e-8$
+
+\subsection{卷积神经网络}
+卷积神经网络(Convolutional Neural Network, CNN)是一种前馈网络，该网络内部单元的连接模式不同于传统的全连接方式，每个神经元的输入仅与上一层对应单元核大小范围内的输出单元有关。卷积神经网络相当于在神经网络上执行卷积操作。\par
+数学上的卷积函数定义如下：\par
+设$x(a)$和$w(a)$为在$R$上的可导函数，则称$s(t) = \int x(a)w(t-a)da$为函数$x$与$w$的卷积，记作$s(t) = (x * w)(t)$\par
+其中$x$被称为输入，$w$被称为核函数(kernel function)，在统计学上，卷积操作相当于加权平均。\par
+由于自然语言为离散序列，故本文使用的卷积运算核为1维，卷积公式可以写为：\par
+\begin{equation}
+s(t) = (x * w)(t) = \sum x(a)w(t -a)
+\end{equation}
+在实际使用中，a的取值范围通常较小，以减少运算，产生局部输出单元的综合输出。
+下采样(downsampling)卷积函数能够每隔一段距离采样，称该距离为步长(stride)，则当核为1维，核长为k时，卷积公式可以写为：
+\begin{equation}
+s(t) = (x * w)(t) = \sum_{i = 0}^{\lfloor{\frac{k}{stride}}\rfloor}{x(t + i \times stride)w(i \times stide)}
+\end{equation}
+卷积操作通过三个重要的思想帮助改进机器学习系统，即稀疏交互，参数共享和平移不变性\cite{deeplearning2016}。首先是稀疏交互，如图\ref{cnn1}，传统神经网络单元会与上一层的每个输入单元产生交互，而通过限制卷积核大小，单元只会与附近的输入单元产生交互，从而大大减少了需要训练和存储的参数，提升了效率和泛化能力。然后是参数共享，在卷积神经网络中，多个位置共享同样的参数集合，而不需要针对每个位置单独训练。最后是平移不变性。如果我们在输入中移动一个事件，那么对应的输出仍会输出而且会延后相应长度。例如，对于“手机 小巧 玲珑”和“我 觉得 手机 小巧 玲珑”，当卷积核的大小为2，步长为2时，两句中的“手机 小巧”将会输出同样的结果。
 
 \begin{figure}[!hbp]
 \begin{center}
-\includegraphics[width=0.5\textwidth]{graphic/DMARequestMapping.PNG}
-\caption{DMA请求映射图 \label{DMACorresponding}}
+\includegraphics[width=0.4\textwidth]{graphic/cnn1.png}
+\caption{CNN与ANN对比\cite{deeplearning2016} \label{cnn1}}
 \end{center}
 \end{figure}
 
-\subsection{中断入口}
-
-	至此，DMA的配置已经完成，但是还没有使能该DMA，因为DMA使能只能完成数据的接收，而如何知道DMA传输已经完成，还需要中断或者标记位的协助。单片机或者嵌入式系统都会在某种操作完成以后的把相应的标记位置位，如果想知道某个操作，比如DMA传输是否已经完成就可以通过程序轮询该标志位来完成，但这样的代价就是系统资源完全被使用在轮询上而同时不能做其他的操作，中断则可以让微控制器在某个中断事件没有完成之前做一些其他的事情，等中断触发了再去处理该中断事件。
-
-	中断发生以后，系统会跳到某一个地址处执行该中断的代码，STM32的固件库在中断处理上另外创建了一个.c文件，名为stm32f10x\_{}it.c。在该文件中定义了处理所有中断事件的函数，也即所有中断事件的入口地址，底层的对应关系全部由固件库实现，编程者只需要知道当某个事件的中断发生时，程序会跳转到这个文件的对应中断函数中就可以。以DMA1的通道6为例，该中断的入口函数地址为：
+\subsubsection{池化}
+池化(Pooling)是卷积神经网络中非常重要的操作，能帮助学习输入特征的不变性，也能减少特征数量，增加计算速度。常见的池化方式有两种，最大池化和平均池化。最大池化给出了卷积层输出中一个矩形区域内特征的最大值，而平均池化则为矩形区域内特征的平均值。池化相当于简单使用某一位置附近区域的总体输出来代替各单元的输出。在自然语言处理中，最大池化的作用往往要好于平均池化，因此，本文采用最大池化方式。
+\subsection{C\& W模型}
+C\& W模型是由collobert等于2011年\cite{collobert2011} 提出的基于卷积神经网络的自然语言处理框架，该模型被设计能够适用于几乎所有自然语言处理任务，同时也能对某个任务进行细化以提高精度。C\& W模型分为两种模式，单词窗口和语句模式，后者主要结构如图\ref{candw1}。模型可以分为七层，输入层，查表层，卷积层，池化层，线性层和对应的激活函数层，最后是输出层。C\& W模型在各任务上都表现良好，接近为特定任务特化的系统性能，因此本文选择C\& W模型作为基本框架。
+\begin{figure}
 \begin{center}
-\verb|void DMA1_Channel6_IRQHandler(void)|
+\includegraphics{graphic/candw1.png}
+\caption{c\&w语句模式基本模型 \label{candw1}}
+\end{center}
+\end{figure}
+\subsection{循环神经网络}
+循环神经网络(Recurrent Neural Network)是专门用于处理序列数据的神经网络。如图，传统神经网络为序列中的每个状态分别训练权重，但RNN在时间步内共享参数。给定时间t的变量后，t+1时变量的条件概率分布是平稳的，不依赖于t，也即RNN具有时间上的平移不变性。\par
+对于长度为{t}的序列$\vec{x}$，一般神经网络计算方式可以表示为：
+\begin{equation}
+h_t = g_t(x_t, x_{t-1},...,x_0;\theta)
+\end{equation}
+其中$\theta$代表所有网络参数。\par
+而RNN的计算方式可以表示为:
+\begin{equation}
+h_t = g_t(x_t, x_{t-1},...,x_0;\theta) = f(h_{t-1}, x_t;\theta)
+\end{equation}
+RNN能将长度为t的序列映射为固定长度的向量，但这种映射通常是有损的，因此，需要保证$h_t$足够丰富，能够记住序列中的信息。
+RNN主要有三种结构，a中每个时间步都有输出，并且隐藏单元与过去隐藏单元相关联，b中隐藏单元与过去输出相关联，而c中只有最后一个时间步有输出。由于语句级情感分析任务最终只有一个输出，所以本章中RNN结构符合c。
+训练中，RNN使用通过时间反向传播算法(BPTT)反向推导t步梯度。实践中，为了降低复杂度，同时也因为梯度爆炸和梯度消失的限制，t往往取较小的定值。
+\begin{center}
+\begin{figure}
+\subfigure{
+	\label{fig:rnn1}
+	\includegraphics[width=0.3\textwidth]{graphic/rnn1.PNG}
+}
+\subfigure{
+	\label{fig:rnn2}
+	\includegraphics[width=0.3\textwidth]{graphic/rnn2.PNG}
+}
+\subfigure{
+	\label{fig:rnn3}
+	\includegraphics[width=0.3\textwidth]{graphic/rnn3.PNG}
+}
+\caption{RNN基本结构}
+\end{figure}
 \end{center}
 
-为了让DMA1的通道6是在接收完规定字节数的从USART2端口来的数据以后再进入中断，需要在上面的DMA初始化以后添加如下代码：
-
-\textit{\color{blue}{//使能DMA1的通道6}}
-
-	\verb|DMA_Cmd(DMA1_Channel6, ENABLE);|
-
-\textit{\color{blue}{//使能DMA1通道6的传输完成中断，也即一次完整DMA数据传输完成以后该中断标志位置位}}
-
-\verb|	DMA_ITConfig(DMA1_Channel6, DMA_IT_TC, ENABLE);|
-
-到此，系统初始化的各项配置完成，不要其他操作可以让main函数进入\verb|while(1)；|空循环，当有DMA传输完成时就会自动跳转到stm32f10x\_{}it.c的
-
-\verb|void DMA1_Channel6_IRQHandler(void)|
-
-函数执行代码。
-
-\subsection{系统固件实现综述}
-
-	上面的几个部分比较完整的介绍了STM32使用固件库函数完整配置USART2端口通过DMA接收数据保存到存储器并在每次传输完成后进入中断的过程。但并没有介绍具体的程序实现，而只是配置，另外也缺少对于程序整体宏观的一个印象，这一部分主要通过流程图的方式介绍整个系统。
-
-	\ref{EEGSynTrigger} 节 简单介绍了刺激事件信号与脑电EEG信号同步的思想。这一部分介绍其具体实现，并将编写的STM32固件程序全貌展示出来。程序整体流程(图~\ref{DMAIntWhole} )如下所述：
+\subsection{LSTM}
+RNN为信息的持久化提供了行之有效的方法，但RNN存在梯度爆炸或梯度消失的问题。\par
+考虑最简单的RNN单元，即：
+\begin{equation}
+h_t = W^Th_{t-1}
+\end{equation}
+该公式相当于：
+\begin{equation}
+h_t = {W^t}^Th_0
+\end{equation}
+若W符合下列形式的特征分解：
+\begin{equation}
+W=Q\Lambda Q^T
+\end{equation}
+则原式可以转化为：
+\begin{equation}
+h_t = Q^T\Lambda ^t Qh_0
+\end{equation}
+因此，$h_t$随时间成指数形式增长，若幅值小于1时，$h_t$将随t的增长趋向于0，出现梯度消失现象，而当幅值大于1时，$h_t$又激增，导致梯度爆炸。\par
+为了减轻梯度消失问题，Hochreiter等\cite{lstm1997}提出了LSTM模型，该模型主要由以下四部分构成：
 \begin{enumerate}
-\item 系统上电；
-\item 初始化系统时钟72MHz/36MHz；
-\item 初始化外设，包括IO口，USART端口，DMA，同步计数器以及各种中断优先级设置和中断使能；
-\item 握手同步两边的时钟，成功则继续，否则LED输出红色并停止
-\item 使能DMA1通道6的中断接收
-\item 程序进入循环；
+\item 遗忘门：控制状态更新
+\item 输入门：控制信息保存。
+\item 输出门：控制读取信息。
+\item 记忆单元：存储状态。
 \end{enumerate}
-
-在图~\ref{DMAIntWhole}的流程图最左侧的是主循环，完成了系统的初始化配置和中断设置等。中间的流程是每0.1ms一次的同步计数器中断，右边的流程是DMA数据接收完成后进入的中断程序。为了理解的方便，我将大量的代码放在中断中进行的，使中断的执行时间增加，由于同步计数器的中断优先级最高，抢占式优先级为0，次优先级为0，因此很有可能DMA的中断会被同步计数器的中断嵌套，而中断嵌套非常耗费系统资源，一般也不建议将大量代码放在中断中执行，为此将DMA中代码放入主程序main的while(1)循环中执行，每当有DMA完成的标记位被标记时就执行该段代码，而不再使能DMA1通道6的中断事件。最终版代码的流程图如图~\ref{DMAaskWhole} 所示，实际上还有一种思路是让程序在mian 循环中递增同步计数器，而在中断中完成DMA数据接收，考虑到同步计数器是无线同步触发的基础，如果某次计数值增加被DMA中断，那么就会造成系统同步误差，因此将同步计数器程序放入中断以最高优先级执行。该思路的还一个好处在于将原先放在中断中执行的代码放入主循环执行，就可以使用JTAG的在线调试功能查看该段代码的实时运行情况。而中断代码无法通过JTAG在线调式功能看到运行情况。
-
+LSTM的具体计算流程如下：
+\begin{equation}
+i_t = \sigma(W_i  [h_{t-1},x_t] + b_i)
+\end{equation}
+其中$i_t$为输入门输出的结果，$W_i$为输入门的参数，$h_{t-1}$为上一时刻的输出，$x_t$为本时刻的输入，$b_i$为输入门的参数偏置。
+\begin{equation}
+u_t = \tanh{(W_u [h_{t-1},x_t] + b_u)}
+\end{equation}
+其中$u_t$为记忆单元得到的结果，$W_u$为记忆单元的参数，$b_u$为输入门的参数偏置。
+\begin{equation}
+f_t = \sigma{(W_f [h_{t-1},x_t] + b_f)}
+\end{equation}
+其中$f_t$为遗忘门输出的结果，$W_f$为遗忘门的参数，$b_f$为遗忘门的参数偏置。
+\begin{equation}
+C_t = f_t C_{t-1} + i_t \times u_t
+\end{equation}
+其中$C_t$为本时间点的状态。
+\begin{equation}
+o_t = \sigma{(W_o [h_{t-1},x_t] + b_o)}
+\end{equation}
+其中$o_t$为输出门输出的结果，$W_o$为输出门的参数，$b_o$为输出门的参数偏置。
+\begin{equation}
+h_t = o_t \times tanh{(C_t)}
+\end{equation}
+其中$h_t$为最终输出结果。
 \begin{figure}[!hbp]
 \begin{center}
-\includegraphics[width=\textwidth]{graphic/wholeProces.png}
-\caption{带DMA中断的整体软件流程图 \label{DMAIntWhole}}
+\includegraphics[width=0.4\textwidth]{graphic/lstm1.png}
+\caption{LSTM基本结构\cite{deeplearning2016} \label{lstm1}}
 \end{center}
 \end{figure}
-
-\begin{figure}[!hbp]
-\begin{center}
-\includegraphics[width=\textwidth]{graphic/wholeProces2_final.png}
-\caption{带DMA轮询的整体软件流程图 \label{DMAaskWhole}}
-\end{center}
-\end{figure}
-
-
-

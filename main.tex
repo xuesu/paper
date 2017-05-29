@@ -2,19 +2,14 @@
 \usepackage[xetex,colorlinks,linkcolor=blue,bookmarks]{hyperref}
 \usepackage{amsfonts,amsmath,amssymb}
 \usepackage{caption,tabu,longtable}
-\usepackage{graphicx}
-\usepackage{subfigure}
+\usepackage{graphicx,subfigure}
 \usepackage{BUPTthesisBachelor}
 \usepackage{listings}
 \usepackage{cleveref}
+
 %前面几页不需要页眉页脚
 \pagestyle{empty}
-\setcounter{secnumdepth}{4}
-\renewcommand{\theparagraph}{(\arabic{paragraph})}
-\CTEXsetup[
-        number={\theparagraph},
-        format={\bfseries\songti\zihao{-4}}
-        ]{paragraph}
+
 \begin{document}
 %封面
 \include{data/cover}
@@ -33,7 +28,7 @@
 %正文
 \include{data/chapter1}
 \include{data/chapter2}
-%\include{data/chapter3}
+\include{data/chapter3}
 %\include{data/chapter4}
 %\include{data/chapter5}
 
@@ -60,6 +55,6 @@
 
 \pagestyle{empty}
 %外文译文
-\include{data/Translation}
+%\include{data/Translation}
 \end{document}
 
