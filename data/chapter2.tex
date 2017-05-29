@@ -6,19 +6,6 @@
 \begin{center}
 \begin{longtabu} to 0.8\textwidth{X|X[3]}
 \hline
-名称 & 手机评论数据集\\
-\hline
-数据总数 & 2700条\\
-语言 & 中文\\
-比例 & 正向:负向=1700:1000\\
-词数最大值 & 300词数量级\\
-90\%词数 & 50词数量级\\
-情感分类准确度 & 较为正确\\
-语句特点 & 语句较为规范，感情较为强烈\\
-获取方式 & 实验室内部资源\\
-主要用途 & 初期评估模型可行性及模型展示\\
-词频统计 & \includegraphics[width=0.6\textwidth, height=0.3\textwidth]{graphic/wordsnum_mobile.png}\\
-\hline
 %\caption{Mobile Dataset Word Number}
 名称 & NLPCC 2014 SCDL数据集\\
 \hline
@@ -50,58 +37,11 @@
 情感分类准确度 & 不够准确\\
 语句特点 & 语句较为口语化\\
 获取方式 & 通过selenium模拟浏览器爬取到388067条带评分的携程酒店评论，其中评分小于4.0的定为负向，评分等于5的定为正向\\
-主要用途 & 模型展示及标注实体数据集\\
+主要用途 & 模型展示\\
 词频统计 & \includegraphics[width=0.6\textwidth, height=0.3\textwidth]{graphic/wordsnum_xiecheng.png}\\
 \hline
 \end{longtabu}
 \end{center}  
-\subsection{实体级数据集}
-\begin{center}  
-\begin{longtabu} to 0.8\textwidth{X|X[3]} 
-
-\hline
-名称 & SemEval2014Task4数据集\\
-\hline
-数据总数 & Laptop子数据集为3045条，Restaurants子数据集为3041条\\
-语言 & 英文\\
-词数最大值 & 80词数量级\\
-90\%词数 & 50词数量级\\
-情感分类准确度 & 较为正确\\
-语句特点 & 语句较为规范，感情较为强烈\\
-获取方式 & \url{http://alt.qcri.org/semeval2014/task4/}(Accessed at: 5/21/2017)，取其中已标注的训练数据部分\\
-主要用途 & 评估模型可行性及模型展示\\
-词频统计 & 
-Laptop\newline
-\includegraphics[width=0.6\textwidth, height=0.3\textwidth]{graphic/wordsnum_semval14_laptop.png}
-\newline
-Restaurant
-\newline
-\includegraphics[width=0.6\textwidth, height=0.3\textwidth]{graphic/wordsnum_semval14_restaurants.png}\\
-\\
-\hline
-名称 & 携程实体数据集\\
-\hline
-数据总数 & 6947条\\
-语言 & 中文\\
-词数最大值 & 100词数量级\\
-90\%词数 & 20词数量级\\
-情感分类准确度 & 较为正确\\
-语句特点 & 语句较为规范，感情较为强烈\\
-获取方式 & 对携程数据集进行过滤，取长度为10-100词之间，名词类词语只能为特定实体的语句进行手工标注实体和实体极性得到\\
-主要用途 & 评估模型可行性及模型展示\\
-词频统计 & \includegraphics[width=0.6\textwidth, height=0.3\textwidth]{graphic/wordsnum_xiechengABSA.png}\\
-\hline
-\end{longtabu}  
-\end{center}  
-
-携程实体数据集所用到的实体如下：
-\begin{itemize}
-\item 地铁,整体,态度,服务员,性价比
-\item 价格,前台,早餐,交通,位置
-\item 设施,环境,房间,酒店
-\end{itemize}
-该实体集合是通过统计携程数据集上出现频率为前20的名词，经过人工筛选不规范的词汇后得到的。
-
 \section{情感词典}
 由于知识模型可以同时支持中/英文分析，故情感词典主要由以下两种语言共六个词典组成。
 \subsection{中文情感词典}
@@ -129,14 +69,14 @@ Restaurant
 \end{center}
 \end{figure}
 
-\subsection{分词和命名实体识别工具}
+\subsection{分词}
 \subsubsection{中文}
 本文分别从携程数据集，手机数据集和NLPCC中文任务中各随机抽取5条语句，使用相同的用户自定义词典，对比了三种分词工具：thulac,ansj,jieba的精准分词性能，结果如\nameref{appendix:parsercompare}所示。由于ansj工具的实体识别能力最强，故选择ansj工具。\par
 ansj是由孙健实现的，具有分词，标注词性，实体识别，关键词抽取及新词发现功能的java中文分词工具。该工具使用隐马尔科夫模型进行语义消歧，使用Hash和高度优化Trie树进行词典匹配，并使用条件随机场模型(CRF)进行新词发现。\cite{ansjwiki} 本文主要使用到其分词，标注词性，实体识别及新词发现功能。\par
 对于新词发现功能，本文主要学习输入语料中的新词，然后对这些新词进行手工过滤，加入情感词典以及ansj用户自定义词典。其中用户自定义词典人工过滤8430条，过滤得到3137条词条，157条情感词典词条。
 \subsubsection{英文}
 与没有分隔符的中文相比，英文短句中的单词之间由空格作为分隔符，更易于分隔，因而英文的分词难度远远小于中文分词。但由于英文文本中存在标点符号和不规则语用现象，本文选择使用Stanford CoreNLP工具进行分词。同时，这一步也是为了知识模型生成语法树做准备。\par
-Stanford CoreNLP工具是由斯坦福大学自然语言处理实验室研发的\cite{corenlp}，可以处理分句(ssplit)，分词(tokenize)，词性标注(POS)，词干化(lemma)，命名实体分析(NER)，语法树分析(parse)，短句情感分析(sentiment)和词语分析(natlog)等多种任务的工具集。本文中主要用到其中的分词，分句，词性标注，词干化，命名实体分析，语法树分析等功能。\par
+Stanford CoreNLP工具是由斯坦福大学自然语言处理实验室研发的\cite{corenlp}，可以处理分句(ssplit)，分词(tokenize)，词性标注(POS)，词干化(lemma)，命名实体分析(NER)，语法树分析(parse)，短句情感分析(sentiment)和词语分析(natlog)等多种任务的工具集。本文中主要用到其中的分词，分句，词性标注，词干化，语法树分析等功能。\par
 该工具集基于Java，由管道(Pipeline)将各子工具连接，从而方便地复用了各子工具。\par
 以下代码为本文系统JAVA部分调用Stanford CoreNLP工具的代码：\par
 \lstset{language=java}
@@ -168,7 +108,7 @@ new StanfordCoreNLP(
 \begin{enumerate}
 \item 待编码的离散特征，为了便于表示，称为Emb Feature。
 \item One-hot离散特征: Onehot Feature。
-\item 连续特征: D Feature。
+\item 连续特征: C Feature。
 \end{enumerate}
 \par
 三种特征各自有不同的处理方式。同时，对于某些离散特征，本文会删除词频较低的词汇，以提高模型拓展性，详细分析请见第三章。
@@ -188,13 +128,9 @@ new StanfordCoreNLP(
 \hline
 知识模型 & 语句级 & 词汇(D) & 词性还原化词汇(D)\\
 \hline
-CNN模型 & 语句级 & 词汇编号(Emb) & 词汇编号(Emb)，词干编号(Emb)\\
+NOLSTM模型 & 语句级 & 词汇编号(Emb) & 词汇编号(Emb)，词干编号(Emb)\\
 \hline
-RNN模型 & 语句级 & 词汇编号(Emb) & 词汇编号(Emb)，词干编号(Emb)\\
-\hline
-CNN模型 & 实体级 & 词汇编号(Emb)，词性编号(Onehot) & 词汇编号(Emb)，词干编号(Emb)，NER特征编号(Onehot)\\
-\hline
-RNN模型 & 实体级 & 词汇编号(Emb)，词性编号(Onehot) & 词汇编号(Emb)，词干编号(Emb)，NER特征编号(Onehot)\\
+CLSTM模型 & 语句级 & 词汇编号(Emb) & 词汇编号(Emb)，词干编号(Emb)\\
 \hline
 \end{tabu}
 \end{center}
