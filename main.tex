@@ -1,15 +1,16 @@
-\documentclass[a4paper,twoside]{ctexbook}
-\usepackage[xetex,colorlinks,linkcolor=blue,bookmarks]{hyperref}
-\usepackage{amsfonts,amsmath,amssymb}
-\usepackage{caption,tabu,longtable}
-\usepackage{graphicx,subfigure}
+\documentclass[a4paper]{ctexbook}
+\usepackage[xetex,colorlinks,linkcolor=black,citecolor=black,urlcolor=black,bookmarks]{hyperref}
 \usepackage{BUPTthesisBachelor}
 \usepackage{listings}
 \usepackage{cleveref}
 
+\usepackage{amsfonts,amsmath,amssymb}
+\usepackage{tabu,longtable,booktabs}
+\usepackage{float}
+\usepackage{graphicx,subfigure}
+\usepackage[labelsep=space]{caption}
 %前面几页不需要页眉页脚
 \pagestyle{empty}
-
 \begin{document}
 %封面
 \include{data/cover}
@@ -19,8 +20,10 @@
 \include{data/ChnAbstract}
 %eAbstract
 \include{data/eAbstract}
-
-\frontmatter{Roman} %开始罗马页数计数
+\frontmatter %开始罗马页数计数
+\pagestyle{plain}
+%\setcounter{page}{1}
+%\pagenumbering{Roman}
 \tableofcontents
 \mainmatter	%开始阿拉伯数字计页数
 %从正文开始加入页眉和页脚
@@ -30,7 +33,9 @@
 \include{data/chapter2}
 \include{data/chapter3}
 \include{data/chapter4}
-%\include{data/chapter5}
+\include{data/chapter5}
+\include{data/chapter6}
+\include{data/chapter7}
 
 %%参考文献
 \clearpage

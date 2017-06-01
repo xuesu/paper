@@ -1,4 +1,4 @@
-\chapter{基于神经网络的情感分类模型}
+\chapter{基于神经网络的情感分类模型}\thispagestyle{fancy}
 \section{深度学习相关算法}
 本节将从人工神经网络(Artificial Neural Networks, ANN)开始，分别简单介绍反向传播网络(Back Propagation, BP)，卷积神经网络(Convolutional Neural Networks, CNN)，循环神经网络(Recurrent Neural Networks, RNN)，长短时记忆型循环神经网络(Long Short Term Memory, LSTM)，优化算法等模型中可能用到的相关算法。
 \subsection{人工神经网络}
@@ -9,12 +9,22 @@
 \caption{ANN基本单元\cite{ml2006} \label{ann1}}
 \end{center}
 \end{figure}
-其函数可以写作
+
+
+其函数可以写作：
+
+
 \begin{equation}
 o(\vec{x}) = f(\vec{w} \vec{x} - b)
 \end{equation}
+
+
 其中$\vec{x}$为输入，$f$为激活函数，负责将线性输出转变为非线性输出以增加神经网络的表达能力，$\vec{w}$为权重(weights)，$b$为偏置(bias)，与$\vec{w} \vec{x} $具有相同形状。$\vec{w}$与$b$通常是神经网络训练的主要对象。
+
+
 常用的激活函数有sigmoid(又称logistic函数),tanh,ReLu(Rectified Linear Unit)等，具体公式如下：
+
+
 \begin{center}
 \begin{tabu}  to 0.8\textwidth{X|X[3]|X[3]}
 \hline
@@ -58,6 +68,7 @@ $$
 由于sigmoid函数和tan函数的导数是线性输出的二次多项式，在训练时易导致梯度爆炸或梯度消失问题，故本文中线性层之间的激活函数主要选用ReLU函数。\par
 一个较典型的人工神经网络通常由多层基本单元构成，如图\ref{ann2}，通常有输入层，隐含层，输出层，各层之间通过激活函数将线性输出转化为非线性输出。\par
 
+
 \begin{figure}[!hbp]
 \begin{center}
 \includegraphics[width=0.4\textwidth]{graphic/ann2.png}
@@ -67,21 +78,29 @@ $$
 
 \subsection{损失计算函数}
 本文中主要使用带有softmax的交叉熵函数计算网络输出值和目标值之间的误差。softmax函数是sigmoid函数在多分类问题上的拓展。
+
+
 \begin{equation}
 softmax(t_i) = \frac{e^{t_i}}{\sum_j{e^{t_j}}}
 \end{equation}
+
+
 其中$\vec{t}$为网络的输出，其长度为类别总数。
+
+
 \begin{equation}
 loss = crossentropy(\vec{S}, \vec{L}) 
 = \sum_i {(L_i * log(s_i))}, \vec{S} = softmax{(\vec{t})}
 \end{equation}
+
+
 其中$\vec{L}$为网络的目标值，其长度为类别总数。
 
 \subsection{反向传播网络}
 反向传播算法是目前多层神经网络主要的训练方法，它主要基于微积分的链式求导法则\ref{chainrule}，对神经网络从输出层向上进行快速求导。
 
 \begin{equation} \label{chainrule}
-(f(g(y)))' = f'(g(y)) * g'(y)
+(f(g(y)))' = f'(g(y))g'(y)
 \end{equation}
 反向传播神经网络的训练基本流程是：\par
 \begin{enumerate}
@@ -106,25 +125,39 @@ loss = crossentropy(\vec{S}, \vec{L})
 \begin{equation}
 w_i \leftarrow w_i + \eta\Delta w_i
 \end{equation}
+
+
 其中$\Delta w_i$为误差相对于分量$w_i$方向上的梯度，$\eta$为控制步长的学习速率。\par
 但梯度下降方法每一步都需要计算所有训练样例上的整体误差，同时，梯度下降方法很可能收敛到局部极小值。\par
 为了缓解这些困难，人们提出了随机梯度下降算法，该算法根据每个训练样例batch单独计算误差来更新权值，相当于为每个batch单独定义不同的误差函数。因此，如果误差平面上有多个局部极小值，随机梯度下降算法可以通过不同的误差避免陷入局部最小值。
 \subsubsection{Adagrad方法}
 虽然随机梯度下降方法为避免陷入局部最小值提供了可行的方法，但梯度下降方法对所有需要更新的权向量都使用了全局学习速率，而全局学习速率可能不适应于所有的参数。Adagrad(Adaptive Subgradient)方法\cite{adagrad}能够对每个参数自适应不同的学习速率，对稀疏特征使用更大的学习速率，因此更适应于处理稀疏数据。\par
+
+
 其学习速率为：
+
+
 \begin{equation}
 \eta_{t, i} = \frac{\eta_0}{ \sqrt{\sum_{j=1}^{t}{G_{j,i}^2} + \epsilon}}
 \end{equation}
+
+
 其中,$\eta_{t, i}$为t时刻对于权重$w_i$的学习速率，$\eta_0$为初始学习速率，$\epsilon$为平滑常数，用于防止分母为0，$G_{j,i}$代表j时刻$w_i$方向上的梯度。
 
 \subsubsection{ADADELTA方法}
 Zeiler等\cite{adadelta}人认为Adagrad方法存在三个问题:
+
+
 \begin{enumerate}
 \item 其学习率单调递减，训练后期学习率过小。
 \item 需要手工设置一个全局的初始学习率。
 \item 更新$X_t$时存在单位不统一现象。
 \end{enumerate}
+
+
 因此Zeiler等人提出了ADADELTA方法，用于改进Adagrad方法。ADADELTA算法基于牛顿迭代法，其学习速率不再基于全部梯度平方之和，而主要基于最近的梯度。
+
+
 其学习速率更新规则为：
 \begin{equation}
 E[g^2]_t = \rho E[g^2]_{t-1} + (1-\rho )g_t^2
@@ -139,6 +172,7 @@ E[\eta^2]_t = \rho E[\eta^2]_{t-1} + (1-\rho )\eta_t^2
 
 \subsubsection{ADAM方法}
 ADAM(Adaptive Moment Estimation)\cite{adam}根据损失函数对每个参数的梯度的一阶矩估计和二阶矩估计动态调整针对于每个参数的学习速率，其中一阶矩的作用类似于冲量项(momentum)，二阶矩则与ADADELTA算法相似。ADAM算法迭代更新步长有一个较为稳定的范围，因此更适合RNN。
+
 
 \begin{equation}
 m_t = \beta_1 m_{t - 1} + (1 - \beta_1)g_t
@@ -155,6 +189,8 @@ v_t = \beta_2 m_{t - 1} + (1 - \beta_2)g_t^2
 \begin{equation}
 \eta_t = -\frac{\eta}{\sqrt{\hat{v_t} + \epsilon}} \hat{m_t}
 \end{equation}
+
+
 实践中$\beta_1=0.9$，$\beta_2=0.999$，$\epsilon = 1e-8$
 
 \subsection{卷积神经网络}
@@ -166,11 +202,17 @@ v_t = \beta_2 m_{t - 1} + (1 - \beta_2)g_t^2
 \begin{equation}
 s(t) = (x * w)(t) = \sum x(a)w(t -a)
 \end{equation}
+
+
 在实际使用中，a的取值范围通常较小，以减少运算，产生局部输出单元的综合输出。
+
+
 下采样(downsampling)卷积函数能够每隔一段距离采样，称该距离为步长(stride)，则当核为1维，核长为k时，卷积公式可以写为：
 \begin{equation}
 s(t) = (x * w)(t) = \sum_{i = 0}^{\lfloor{\frac{k}{stride}}\rfloor}{x(t + i \times stride)w(i \times stide)}
 \end{equation}
+
+
 卷积操作通过三个重要的思想帮助改进机器学习系统，即稀疏交互，参数共享和平移不变性\cite{deeplearning2016}。首先是稀疏交互，如图\ref{cnn1}，传统神经网络单元会与上一层的每个输入单元产生交互，而通过限制卷积核大小，单元只会与附近的输入单元产生交互，从而大大减少了需要训练和存储的参数，提升了效率和泛化能力。然后是参数共享，在卷积神经网络中，多个位置共享同样的参数集合，而不需要针对每个位置单独训练。最后是平移不变性。如果我们在输入中移动一个事件，那么对应的输出仍会输出而且会延后相应长度。例如，对于“手机 小巧 玲珑”和“我 觉得 手机 小巧 玲珑”，当卷积核的大小为2，步长为2时，两句中的“手机 小巧”将会输出同样的结果。
 
 \begin{figure}[!hbp]
@@ -182,12 +224,12 @@ s(t) = (x * w)(t) = \sum_{i = 0}^{\lfloor{\frac{k}{stride}}\rfloor}{x(t + i \tim
 
 \subsubsection{池化}
 池化(Pooling)是卷积神经网络中非常重要的操作，能帮助学习输入特征的不变性，也能减少特征数量，增加计算速度。常见的池化方式有两种，最大池化和平均池化。最大池化给出了卷积层输出中一个矩形区域内特征的最大值，而平均池化则为矩形区域内特征的平均值。池化相当于简单使用某一位置附近区域的总体输出来代替各单元的输出。在自然语言处理中，最大池化的作用往往要好于平均池化，因此，本文采用最大池化方式。
-\subsection{C\& W模型}
-C\& W模型是由collobert等于2011年\cite{collobert2011} 提出的基于卷积神经网络的自然语言处理框架，该模型被设计能够适用于几乎所有自然语言处理任务，同时也能对某个任务进行细化以提高精度。C\& W模型分为两种模式，单词窗口和语句模式，后者主要结构如图\ref{candw1}。模型可以分为七层，输入层，查表层，卷积层，池化层，线性层和对应的激活函数层，最后是输出层。C\& W模型在各任务上都表现良好，接近为特定任务特化的系统性能，因此本文选择C\& W模型作为基本框架。
+\subsection{C\&W模型}
+C\&W模型是由collobert等于2011年\cite{collobert2011} 提出的基于卷积神经网络的自然语言处理框架，该模型被设计能够适用于几乎所有自然语言处理任务，同时也能对某个任务进行细化以提高精度。C\&W模型分为两种模式，单词窗口和语句模式，后者主要结构如图\ref{candw1}。模型可以分为七层，输入层，查表层，卷积层，池化层，线性层和对应的激活函数层，最后是输出层。C\&W模型在各任务上都表现良好，接近为特定任务特化的系统性能，因此本文选择C\&W模型作为基本框架。
 \begin{figure}
 \begin{center}
 \includegraphics{graphic/candw1.png}
-\caption{c\&w语句模式基本模型 \label{candw1}}
+\caption{C\&W语句模式基本模型 \label{candw1}}
 \end{center}
 \end{figure}
 \subsection{循环神经网络}
@@ -196,27 +238,37 @@ C\& W模型是由collobert等于2011年\cite{collobert2011} 提出的基于卷�
 \begin{equation}
 h_t = g_t(x_t, x_{t-1},...,x_0;\theta)
 \end{equation}
+
+
 其中$\theta$代表所有网络参数。\par
 而RNN的计算方式可以表示为:
+
+
 \begin{equation}
 h_t = g_t(x_t, x_{t-1},...,x_0;\theta) = f(h_{t-1}, x_t;\theta)
 \end{equation}
+
+
 RNN能将长度为t的序列映射为固定长度的向量，但这种映射通常是有损的，因此，需要保证$h_t$足够丰富，能够记住序列中的信息。
+
+
 RNN主要有三种结构，a中每个时间步都有输出，并且隐藏单元与过去隐藏单元相关联，b中隐藏单元与过去输出相关联，而c中只有最后一个时间步有输出。由于语句级情感分析任务最终只有一个输出，所以本章中RNN结构符合c。
+
+
 训练中，RNN使用通过时间反向传播算法(BPTT)反向推导t步梯度。实践中，为了降低复杂度，同时也因为梯度爆炸和梯度消失的限制，t往往取较小的定值。
 \begin{center}
 \begin{figure}
 \subfigure{
-	\label{fig:rnn1}
 	\includegraphics[width=0.3\textwidth]{graphic/rnn1.PNG}
+	\label{fig:rnn1}
 }
 \subfigure{
-	\label{fig:rnn2}
 	\includegraphics[width=0.3\textwidth]{graphic/rnn2.PNG}
+	\label{fig:rnn2}
 }
 \subfigure{
-	\label{fig:rnn3}
 	\includegraphics[width=0.3\textwidth]{graphic/rnn3.PNG}
+	\label{fig:rnn3}
 }
 \caption{RNN基本结构}
 \end{figure}
@@ -228,51 +280,93 @@ RNN为信息的持久化提供了行之有效的方法，但RNN存在梯度爆�
 \begin{equation}
 h_t = W^Th_{t-1}
 \end{equation}
+
+
 该公式相当于：
+
+
 \begin{equation}
 h_t = {W^t}^Th_0
 \end{equation}
+
+
 若W符合下列形式的特征分解：
+
+
 \begin{equation}
 W=Q\Lambda Q^T
 \end{equation}
+
+
 则原式可以转化为：
+
+
 \begin{equation}
 h_t = Q^T\Lambda ^t Qh_0
 \end{equation}
+
+
 因此，$h_t$随时间成指数形式增长，若幅值小于1时，$h_t$将随t的增长趋向于0，出现梯度消失现象，而当幅值大于1时，$h_t$又激增，导致梯度爆炸。\par
 为了减轻梯度消失问题，Hochreiter等\cite{lstm1997}提出了LSTM模型，该模型主要由以下四部分构成：
+
+
 \begin{enumerate}
 \item 遗忘门：控制状态更新
 \item 输入门：控制信息保存。
 \item 输出门：控制读取信息。
 \item 记忆单元：存储状态。
 \end{enumerate}
+
+
 LSTM的具体计算流程如下：
+
+
 \begin{equation}
 i_t = \sigma(W_i  [h_{t-1},x_t] + b_i)
 \end{equation}
+
+
 其中$i_t$为输入门输出的结果，$W_i$为输入门的参数，$h_{t-1}$为上一时刻的输出，$x_t$为本时刻的输入，$b_i$为输入门的参数偏置。
+
+
 \begin{equation}
 u_t = \tanh{(W_u [h_{t-1},x_t] + b_u)}
 \end{equation}
+
+
 其中$u_t$为记忆单元得到的结果，$W_u$为记忆单元的参数，$b_u$为输入门的参数偏置。
+
+
 \begin{equation}
 f_t = \sigma{(W_f [h_{t-1},x_t] + b_f)}
 \end{equation}
+
+
 其中$f_t$为遗忘门输出的结果，$W_f$为遗忘门的参数，$b_f$为遗忘门的参数偏置。
+
+
 \begin{equation}
 C_t = f_t C_{t-1} + i_t \times u_t
 \end{equation}
+
+
 其中$C_t$为本时间点的状态。
+
+
 \begin{equation}
 o_t = \sigma{(W_o [h_{t-1},x_t] + b_o)}
 \end{equation}
+
+
 其中$o_t$为输出门输出的结果，$W_o$为输出门的参数，$b_o$为输出门的参数偏置。
 \begin{equation}
 h_t = o_t \times tanh{(C_t)}
 \end{equation}
+
+
 其中$h_t$为最终输出结果。
+
+
 \begin{figure}[!hbp]
 \begin{center}
 \includegraphics[width=0.4\textwidth]{graphic/lstm1.png}
@@ -281,7 +375,7 @@ h_t = o_t \times tanh{(C_t)}
 \end{figure}
 
 \section{NOLSTM模型}
-本文基于C\& W模型实现了情感分类模型，由于卷积神经网络具有平移不变性，因此可以抽取出语句中短语特征，从而借此分析整体情感。
+本文基于C\&W模型实现了情感分类模型，由于卷积神经网络具有平移不变性，因此可以抽取出语句中短语特征，从而借此分析整体情感。
 \subsection{神经网络结构}
 NOLSTM模型主要分为八层，输入层，连接层，卷积层，Dropout层，三层线性层和输出层。\par
 其中，如图\ref{nolstm1}输入层和连接层对应于C\& W模型的输入层和查表层，输入的离散特征在输入层转换为one-hot编码或者经过训练的编码，连接层将输入的特征包括连续特征进行连接，拓展每个词所对应的特征向量维数。输入层设计为与具体特征选择无关，以便于调整模型，也便于未来用不同的特征对模型进行拓展。\par
@@ -290,6 +384,7 @@ Dropout层被加在卷积层之后以便于提高模型泛化性。Dropout能够
 模型接下来使用了三层特征数目依次递减的全连接层即Linear0，Linear1，Linear2抽取高级特征，如图\ref{nolstm3}，线性层之间使用ReLU函数进行激活。\par
 最后模型进行误差和精度计算，并使用ADAM优化函数即图中的Optimizer进行反向传播。图中的save用于保存和读取模型。\par
 由于该模型相对于特征独立，所以该模型可以被同时应用于中英双语，也可以拓展到其它语句分类任务上。
+
 
 \begin{figure}[!hbp]
 \begin{center}
@@ -316,6 +411,8 @@ Dropout层被加在卷积层之后以便于提高模型泛化性。Dropout能够
 \end{center}
 \end{figure}
 \subsection{模型主要流程}
+
+
 模型分为训练模式与测试模式：\par
 在训练模式下，基本步骤为：\par
 \begin{enumerate}
@@ -325,7 +422,11 @@ Dropout层被加在卷积层之后以便于提高模型泛化性。Dropout能够
 \item 每隔特定步数，对验证集进行测试，测试时不启动反向传播。
 \item 若验证集精度大于已有最好精度，保存该模型，同时在测试集上进行测试，本文认为在测试集上的精度衡量了其泛化能力。
 \end{enumerate}
-在测试模式下，基本步骤为：\par
+
+
+在测试模式下，基本步骤为：
+
+
 \begin{enumerate}
 \item 载入模型。
 \item 使用数据生成器将单一语句转化为输入特征。
@@ -340,7 +441,7 @@ Dropout层被加在卷积层之后以便于提高模型泛化性。Dropout能够
 \end{enumerate}
 \section{CLSTM模型}
 由于文本是不定长的离散序列，故RNN适应于对文本建模和分析。本文使用卷积神经网络结合LSTM模型实现了基于循环神经网络的情感分类模型，简称为CLSTM模型，以与NOLSTM相区别。
-\section{神经网络结构}
+\subsection{神经网络结构}
 如图\ref{clstm1}，CLSTM模型主要分为八层，输入层，连接层，卷积层，池化层，Dropout层，第一线性层，LSTM单元层（图\ref{clstm2}），第二线性层。其中输入层，连接层，卷积层，池化层与NOLSTM模型相同。采用与NOLSTM模型相同的卷积层可能违反直觉，因为RNN能够有效利用基于时序的局部特征，但实际上恰恰相反，不使用卷积神经网络或者使用局部池化及堆叠局部池化反而导致模型后期精度下降，这可能同样由语法结构可能反而会导致过拟合这一原因导致的。在实际测试中，该网络结构的性能较为出色。\par
 在对输出特征进行dropout之后，特征首先进入第一线性层而不是LSTM层，以减少特征数量，抽取高级特征，便于LSTM层进行保存。最后，模型通过第二线性层以及输出层预测和计算输出结果。总而言之，LSTM层取代了NOLSTM模型中的第二线性层。
 \subsection{模型主要流程}
@@ -372,5 +473,5 @@ Dropout层被加在卷积层之后以便于提高模型泛化性。Dropout能够
 \caption{CLSTM模型LSTM层 \label{clstm2}}
 \end{center}
 \end{figure}
-\section{模型主要优化}
+\subsection{模型主要优化}
 CLSTM模型结合了LSTM模型与卷积神经网络，能够在提取全局短语特征的同时处理不定长序列。相较于NOLSTM模型，它能更好地利用自然语言地序列属性，训练更少但更有效的参数。实践中，CLSTM模型往往比NOLSTM模型取得更好的成果。

@@ -1,53 +1,58 @@
 %Demo Package by Gaofeng Fan@bupt
+%Altered by Xuesu, 5/30/2017
 \ProvidesPackage{BUPTthesisBachelor}
+%\usepackage{ctex}
 
 %网上说的将文献以上标形式出现,成功,可选参数有好几个，没记住...
 \makeatletter
 \def\@cite#1#2{\textsuperscript{[{#1\if@tempswa , #2\fi}]}}
 \makeatother
 
-% 增加目录大写罗马,可用参数(arabic, alph, Alph, roman, Roman)
+% 目录页码为大写罗马
 \makeatletter
-\renewcommand\frontmatter[1]{%
+\renewcommand\frontmatter{%
    \cleardoublepage
- \@mainmatterfalse
- \pagenumbering{#1}}
+ %\@mainmatterfalse
+ \pagenumbering{Roman}}
 \makeatother
 
+%页面设置，上下左右各2cm，页眉1.5cm，页脚1.5cm
+\usepackage{geometry}
+\geometry{a4paper,left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm,headsep=1.0cm,footnotesep=1.0cm}
 
-%字体设置宏包
-%\usepackage{fontspec} 
-%\setmainfont[BoldFont=Adobe Heiti Std]{Times New Roman}
-
-%\setmainfont[BoldFont=SimHei]{Times New Roman}
-%\usepackage{mathptmx} %这个宏包使用后没有粗体
-
-\setcounter{secnumdepth}{4}
 \CTEXoptions[today=big,contentsname={目\qquad 录},bibname={\textbf\heiti\zihao{3}参考文献}]
-\CTEXsetup[format={\heiti\zihao{3}\bfseries\centering},nameformat={\bfseries},titleformat={\bfseries}]{chapter}
+\CTEXsetup[format={\heiti\zihao{3}\bfseries\centering},nameformat={\bfseries},titleformat={\bfseries},beforeskip=0pt]{chapter}
 \CTEXsetup[format={\heiti\zihao{4}\bfseries\raggedright}]{section}
 \CTEXsetup[format={\heiti\zihao{-4}\bfseries\raggedright},indent={2em}]{subsection}
 \CTEXsetup[format={\heiti\zihao{-4}\bfseries\raggedright},indent={2em}]{subsubsection}
 \CTEXindent
+\setcounter{secnumdepth}{4} %不允许使用四级标题，使用小写罗马数字
+\renewcommand{\thesubsubsection}{\roman{subsubsection}}
 
-\usepackage[top=1in, bottom=1in, left=1in, right=1in]{geometry}
+\usepackage[labelsep=space]{caption}
+\renewcommand{\captionfont}{\kaishu\zihao{-5}}
 %\usepackage[xetex]{color,graphicx}
 %\usepackage[xetex]{color}
 
-%设置页眉页脚的宏包
+\newcommand{\fivem}{\fontsize{9pt}{9pt}\selectfont}
+
+%设置页眉页脚的宏包,fancy默认每章第一页格式为plain，需要单独处理
 \usepackage{fancyhdr}
 \lhead{}
 \chead{\songti\zihao{-5}北京邮电大学本科毕业设计(论文)}
 \rhead{}
 \lfoot{}
 \rfoot{}
-\cfoot{\thepage}
+\cfoot{\fivem{\thepage}}
 
-\setlength{\baselineskip}{20pt}  %设置行间距
+
+
+% 定义行距
+%\renewcommand{\baselinestretch}{1.2}
 
 \makeatletter
 \renewcommand \thefigure{\thechapter-\@arabic\c@figure}%改变图编号的形式
 \renewcommand \thetable{\thechapter-\@arabic\c@table}%改变表格编号的形式
-\renewcommand \theequation{\thechapter-\@arabic\c@equation}%改变表格编号的形式
+\renewcommand \theequation{\thechapter-\@arabic\c@equation}%改变公式编号的形式
 \makeatother
 
